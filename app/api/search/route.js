@@ -23,9 +23,7 @@ function daysAgo(s) {
 }
 
 function exactTokens(q) {
-  return norm(q)
-    .split(/\s+/)
-    .filter(Boolean);
+  return norm(q).split(/\s+/).filter(Boolean);
 }
 
 function scoreHighValue({
@@ -116,20 +114,14 @@ function scoreHighValue({
 
   if (recency <= 30) {
     score += 2;
-
-    reasons.push(
-      "近30天有注册信息更新"
-    );
+    reasons.push("近30天有注册信息更新");
 
     if (primaryType === "相关项目") {
       primaryType = "近期重大更新";
     }
   } else if (recency <= 90) {
     score += 1;
-
-    reasons.push(
-      "近90天有注册信息更新"
-    );
+    reasons.push("近90天有注册信息更新");
   }
 
   if (reasons.length === 0) {
@@ -363,7 +355,7 @@ function dedupe(arr) {
   ];
 }
 
-function buildCombinations(trials) {
+function buildExistingCombinations(trials) {
   const map =
     new Map();
 
@@ -485,20 +477,261 @@ function buildCombinations(trials) {
         x.recent * 2 +
         x.trials -
         x.risk * 2,
-
-      evidence:
-        x.trials >= 5 &&
-        x.active >= 3
-          ? "较多临床开发证据"
-          : x.trials >= 2
-          ? "已有多个临床项目"
-          : "早期/有限",
     }))
     .sort(
       (a, b) =>
         b.score - a.score
     )
+    .slice(0, 30);
+}
+
+function buildFailures(trials) {
+  return trials
+    .filter((t) =>
+      RISK.has(t.status)
+    )
+    .sort(
+      (a, b) =>
+        b.highValueScore -
+        a.highValueScore
+    )
     .slice(0, 20);
+}
+
+function buildUnmetProblems(trials) {
+  const problems = [];
+
+  for (const t of trials) {
+    if (
+      RISK.has(t.status)
+    ) {
+      problems.push({
+        source:
+          t.title,
+
+        nctId:
+          t.nctId,
+
+        problem:
+          "该项目出现终止/暂停/撤回信号，需要判断失败原因是否可被新的联合策略补偿。",
+
+        mechanismNeed:
+          "优先拆解疗效不足、毒性、耐药/逃逸、患者选择和biomarker问题。",
+      });
+    }
+
+    if (
+      t.status ===
+      "COMPLETED"
+    ) {
+      problems.push({
+        source:
+          t.title,
+
+        nctId:
+          t.nctId,
+
+        problem:
+          "项目已完成，但尚需核对是否存在疗效深度、持续性或特定人群获益限制。",
+
+        mechanismNeed:
+          "根据正式结果判断下一步应增强疗效、延长持续时间还是改善患者选择。",
+      });
+    }
+  }
+
+  return problems
+    .slice(0, 12);
+}
+
+function buildPotentialCombinations(
+  trials,
+  existingCombinations
+) {
+  const existingSet =
+    new Set(
+      existingCombinations.map(
+        (x) =>
+          norm(
+            [
+              x.a,
+              x.b,
+            ]
+              .sort()
+              .join(" + ")
+          )
+      )
+    );
+
+  const riskInterventions =
+    new Map();
+
+  for (const t of trials) {
+    if (
+      !RISK.has(t.status)
+    ) {
+      continue;
+    }
+
+    for (
+      const drug of
+      t.interventions || []
+    ) {
+      if (
+        !riskInterventions.has(
+          drug
+        )
+      ) {
+        riskInterventions.set(
+          drug,
+          {
+            drug,
+            count: 0,
+            trials: [],
+          }
+        );
+      }
+
+      const x =
+        riskInterventions.get(
+          drug
+        );
+
+      x.count++;
+
+      if (
+        x.trials.length < 3
+      ) {
+        x.trials.push(
+          t.nctId
+        );
+      }
+    }
+  }
+
+  const candidatePool =
+    new Map();
+
+  for (const t of trials) {
+    if (
+      RISK.has(t.status)
+    ) {
+      continue;
+    }
+
+    for (
+      const drug of
+      t.interventions || []
+    ) {
+      if (
+        !candidatePool.has(
+          drug
+        )
+      ) {
+        candidatePool.set(
+          drug,
+          {
+            drug,
+            activeTrials: 0,
+            indications:
+              new Set(),
+          }
+        );
+      }
+
+      const x =
+        candidatePool.get(
+          drug
+        );
+
+      x.activeTrials++;
+
+      for (
+        const c of
+        t.conditions || []
+      ) {
+        x.indications.add(c);
+      }
+    }
+  }
+
+  const potential = [];
+
+  for (
+    const [
+      a,
+      riskInfo,
+    ] of
+      riskInterventions
+  ) {
+    const candidates = [
+      ...candidatePool.values(),
+    ]
+      .filter(
+        (x) =>
+          x.drug !== a
+      )
+      .sort(
+        (x, y) =>
+          y.activeTrials -
+          x.activeTrials
+      )
+      .slice(0, 8);
+
+    for (
+      const candidate of
+      candidates
+    ) {
+      const pairKey =
+        norm(
+          [
+            a,
+            candidate.drug,
+          ]
+            .sort()
+            .join(" + ")
+        );
+
+      if (
+        existingSet.has(
+          pairKey
+        )
+      ) {
+        continue;
+      }
+
+      potential.push({
+        a,
+
+        problem:
+          `A 在当前检索结果中出现 ${riskInfo.count} 个失败/暂停相关试验，需要进一步拆解真正限制因素。`,
+
+        b:
+          candidate.drug,
+
+        compensation:
+          "候选 B 当前有活跃临床开发，可作为潜在补偿机制候选；具体补偿路径仍需机制证据验证。",
+
+        rationale:
+          "当前未在本次检索结果中发现明确 A+B 临床开发记录，因此可进入“潜在新组合”观察池，但不能仅凭共现数据判断协同。",
+
+        developmentStatus:
+          "当前检索未发现明确 A+B 临床组合",
+
+        evidenceGap:
+          "缺少 A 的具体失败机制、B 是否直接作用于该机制、前临床协同与安全性证据。",
+      });
+
+      if (
+        potential.length >=
+        20
+      ) {
+        return potential;
+      }
+    }
+  }
+
+  return potential;
 }
 
 async function pubmed(q) {
@@ -588,16 +821,20 @@ async function pubmed(q) {
 
       return {
         pmid: id,
+
         title:
           x.title ||
           "Untitled",
+
         journal:
           x.fulljournalname ||
           x.source ||
           "",
+
         pubdate:
           x.pubdate ||
           "",
+
         url:
           `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
       };
@@ -772,15 +1009,6 @@ export async function GET(
       trials
     ).slice(0, 40);
 
-  const relevantSignals =
-    [...trials]
-      .sort(
-        (a, b) =>
-          b.relevance -
-          a.relevance
-      )
-      .slice(0, 12);
-
   const highValueSignals =
     [...trials]
       .filter(
@@ -797,6 +1025,27 @@ export async function GET(
       )
       .slice(0, 10);
 
+  const failures =
+    buildFailures(
+      trials
+    );
+
+  const existingCombinations =
+    buildExistingCombinations(
+      trials
+    );
+
+  const unmetProblems =
+    buildUnmetProblems(
+      trials
+    );
+
+  const potentialCombinations =
+    buildPotentialCombinations(
+      trials,
+      existingCombinations
+    );
+
   return Response.json({
     query: q,
 
@@ -810,16 +1059,17 @@ export async function GET(
 
     trials,
 
-    relevantSignals,
-
     highValueSignals,
 
-    publications,
+    failures,
 
-    combinations:
-      buildCombinations(
-        trials
-      ),
+    existingCombinations,
+
+    unmetProblems,
+
+    potentialCombinations,
+
+    publications,
 
     diagnostics: {
       conditionHits:
