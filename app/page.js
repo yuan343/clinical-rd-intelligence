@@ -263,6 +263,59 @@ function RealtimeSignals({ data }) {
       </section>
 
       <section className="card section">
+  <h2>预计可组合方向</h2>
+
+  <div className="note">
+    这里展示基于当前研发 Signal 和已有联合规律形成的候选联合方向。
+    下一步将进一步升级为实时 Signal 驱动的联合假设。
+  </div>
+
+  {(data.potentialCombinations || []).length ? (
+    <table>
+      <thead>
+        <tr>
+          <th>预计联合方向</th>
+          <th>触发依据</th>
+          <th>潜在互补逻辑</th>
+          <th>参考 Pattern</th>
+          <th>现有开发核对</th>
+          <th>时间窗口</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {data.potentialCombinations.slice(0, 8).map((x, i) => (
+          <tr key={i}>
+            <td>
+              <b>{x.a} + {x.b}</b>
+
+              <div className="small">
+                {x.mechanismA} + {x.mechanismB}
+              </div>
+            </td>
+
+            <td>
+              {x.problem || "基于当前研发 Signal / Pattern 推导"}
+            </td>
+
+            <td>{x.compensation}</td>
+
+            <td>{x.referencePattern || "-"}</td>
+
+            <td>{x.developmentStatus}</td>
+
+            <td>当前待评估</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <div className="muted">
+      当前检索暂未形成可展示的联合假设。
+    </div>
+  )}
+</section>    
+      <section className="card section">
         <h2>Signal → 联合机会</h2>
 
         <div className="note">
