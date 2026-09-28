@@ -38,9 +38,27 @@ function exactTokens(q) {
     .filter(Boolean);
 }
 
+function pairKey(a, b) {
+  return [norm(a), norm(b)]
+    .sort()
+    .join("__");
+}
+
+function overlap(a = [], b = []) {
+  const bSet = new Set(
+    b.map((x) => norm(x))
+  );
+
+  return a.filter((x) =>
+    bSet.has(norm(x))
+  );
+}
+
 // ============================================================
 // High-Value Signal
-// 这里只表示“为什么值得关注”，不是潜在组合推荐
+//
+// 这里表示“为什么值得关注”
+// 不是潜在组合建议
 // ============================================================
 
 function scoreHighValue({
@@ -54,7 +72,8 @@ function scoreHighValue({
 
   const reasons = [];
 
-  let primaryType = "相关项目";
+  let primaryType =
+    "相关项目";
 
   let nextCheck =
     "继续关注项目状态和数据更新。";
@@ -66,21 +85,29 @@ function scoreHighValue({
       "项目已终止/暂停/撤回，可能暴露疗效、安全性、患者选择、机制或战略问题"
     );
 
-    primaryType = "失败/暂停";
+    primaryType =
+      "失败/暂停";
 
     nextCheck =
       "优先核对终止原因：机制失败、疗效不足、安全性、剂量、人群/biomarker、终点设计还是公司战略。";
   }
 
-  if (status === "COMPLETED") {
+  if (
+    status ===
+    "COMPLETED"
+  ) {
     score += 2;
 
     reasons.push(
       "项目已完成，可能进入结果读出或后续开发决策阶段"
     );
 
-    if (primaryType === "相关项目") {
-      primaryType = "关键读出";
+    if (
+      primaryType ===
+      "相关项目"
+    ) {
+      primaryType =
+        "关键读出";
     }
 
     nextCheck =
@@ -94,23 +121,34 @@ function scoreHighValue({
       `存在真实多干预开发（${interventions.length}个干预），可作为已有联合证据`
     );
 
-    if (primaryType === "相关项目") {
-      primaryType = "联合开发";
+    if (
+      primaryType ===
+      "相关项目"
+    ) {
+      primaryType =
+        "联合开发";
     }
 
-    if (!RISK.has(status)) {
+    if (
+      !RISK.has(status)
+    ) {
       nextCheck =
-        "核对是否为同治疗臂真实联合，以及为什么这样联合、结果如何、是否具备可迁移逻辑。";
+        "核对为什么这样联合、结果如何，以及组合逻辑能否迁移到其他分子。";
     }
   }
 
-  const phaseText = (phases || [])
-    .join(" ")
-    .toUpperCase();
+  const phaseText =
+    (phases || [])
+      .join(" ")
+      .toUpperCase();
 
   if (
-    phaseText.includes("PHASE3") ||
-    phaseText.includes("PHASE 3")
+    phaseText.includes(
+      "PHASE3"
+    ) ||
+    phaseText.includes(
+      "PHASE 3"
+    )
   ) {
     score += 3;
 
@@ -118,12 +156,20 @@ function scoreHighValue({
       "进入III期，结果可能显著影响竞争格局"
     );
 
-    if (primaryType === "相关项目") {
-      primaryType = "后期临床";
+    if (
+      primaryType ===
+      "相关项目"
+    ) {
+      primaryType =
+        "后期临床";
     }
   } else if (
-    phaseText.includes("PHASE2") ||
-    phaseText.includes("PHASE 2")
+    phaseText.includes(
+      "PHASE2"
+    ) ||
+    phaseText.includes(
+      "PHASE 2"
+    )
   ) {
     score += 1;
 
@@ -132,23 +178,36 @@ function scoreHighValue({
     );
   }
 
-  const recency = daysAgo(updated);
+  const recency =
+    daysAgo(updated);
 
   if (recency <= 30) {
     score += 2;
 
-    reasons.push("近30天有注册信息更新");
+    reasons.push(
+      "近30天有注册信息更新"
+    );
 
-    if (primaryType === "相关项目") {
-      primaryType = "近期重大更新";
+    if (
+      primaryType ===
+      "相关项目"
+    ) {
+      primaryType =
+        "近期重大更新";
     }
-  } else if (recency <= 90) {
+  } else if (
+    recency <= 90
+  ) {
     score += 1;
 
-    reasons.push("近90天有注册信息更新");
+    reasons.push(
+      "近90天有注册信息更新"
+    );
   }
 
-  if (reasons.length === 0) {
+  if (
+    reasons.length === 0
+  ) {
     reasons.push(
       "与当前检索高度相关，但尚未出现足够强的情报触发信号"
     );
@@ -188,29 +247,30 @@ function classify(study) {
   const sp =
     p.sponsorCollaboratorsModule || {};
 
-  const interventions = (
-    ai.interventions || []
-  )
-    .map((x) => clean(x.name))
-    .filter(Boolean);
+  const interventions =
+    (ai.interventions || [])
+      .map((x) =>
+        clean(x.name)
+      )
+      .filter(Boolean);
 
-  const conditions = (
-    c.conditions || []
-  )
-    .map(clean)
-    .filter(Boolean);
+  const conditions =
+    (c.conditions || [])
+      .map(clean)
+      .filter(Boolean);
 
-  const aliases = (
-    c.keywords || []
-  )
-    .map(clean)
-    .filter(Boolean);
+  const aliases =
+    (c.keywords || [])
+      .map(clean)
+      .filter(Boolean);
 
   const updated =
-    s.lastUpdatePostDateStruct?.date || "";
+    s.lastUpdatePostDateStruct
+      ?.date || "";
 
   const status =
-    s.overallStatus || "UNKNOWN";
+    s.overallStatus ||
+    "UNKNOWN";
 
   const phases =
     d.phases || [];
@@ -297,7 +357,9 @@ function conditionRelevance(
       ].join(" ")
     );
 
-  if (!haystack) return 0;
+  if (!haystack) {
+    return 0;
+  }
 
   if (
     haystack.includes(nq)
@@ -312,7 +374,9 @@ function conditionRelevance(
   ) {
     if (
       token.length > 1 &&
-      haystack.includes(token)
+      haystack.includes(
+        token
+      )
     ) {
       score += 15;
     }
@@ -346,7 +410,9 @@ function generalRelevance(
   ) {
     if (
       token.length > 1 &&
-      haystack.includes(token)
+      haystack.includes(
+        token
+      )
     ) {
       score += 10;
     }
@@ -402,7 +468,9 @@ async function fetchTrials(
           Accept:
             "application/json",
         },
-        cache: "no-store",
+
+        cache:
+          "no-store",
       }
     );
 
@@ -495,7 +563,8 @@ function buildExistingCombinations(
           map.set(
             key,
             {
-              combo: key,
+              combo:
+                key,
 
               a:
                 pair[0],
@@ -503,13 +572,17 @@ function buildExistingCombinations(
               b:
                 pair[1],
 
-              trials: 0,
+              trials:
+                0,
 
-              active: 0,
+              active:
+                0,
 
-              risk: 0,
+              risk:
+                0,
 
-              recent: 0,
+              recent:
+                0,
 
               indications:
                 new Set(),
@@ -590,16 +663,14 @@ function buildExistingCombinations(
         b.score -
         a.score
     )
-    .slice(0, 30);
+    .slice(0, 40);
 }
 
 // ============================================================
-// Combination Pattern Engine
+// Mechanism Dictionary
 //
-// 注意：
-// 这里不是直接推荐新组合。
-// 这里负责把已有真实组合转化成“可迁移的组合模式”。
-// 后续 Potential Combination 要真正引用这些 Pattern。
+// 先做解释型规则。
+// 后面可以继续接外部靶点数据库和AI。
 // ============================================================
 
 const MECHANISM_RULES = [
@@ -608,7 +679,7 @@ const MECHANISM_RULES = [
       "PDL1_VEGF_BISPECIFIC",
 
     label:
-      "PD-L1 × VEGF 双功能机制",
+      "PD-L1 × VEGF双功能机制",
 
     keywords: [
       "bnt327",
@@ -622,7 +693,7 @@ const MECHANISM_RULES = [
       "PD1_VEGF_BISPECIFIC",
 
     label:
-      "PD-1 × VEGF 双功能机制",
+      "PD-1 × VEGF双功能机制",
 
     keywords: [
       "ivonescimab",
@@ -837,6 +908,7 @@ const MECHANISM_RULES = [
       "oxaliplatin",
       "capecitabine",
       "etoposide",
+      "pemetrexed",
     ],
   },
 ];
@@ -849,7 +921,9 @@ function mechanismOf(
 
   if (!text) {
     return {
-      id: "UNKNOWN",
+      id:
+        "UNKNOWN",
+
       label:
         "机制待识别",
     };
@@ -879,12 +953,211 @@ function mechanismOf(
   }
 
   return {
-    id: "UNKNOWN",
+    id:
+      "UNKNOWN",
 
     label:
       "机制待识别",
   };
 }
+
+// ============================================================
+// Combination Pattern Logic
+//
+// 这才是关键：
+// 不只是说“两个机制一起用了”。
+// 还说明：
+// 1. 问题是什么
+// 2. B补什么
+// 3. 为什么可迁移
+// 4. 有什么边界
+// ============================================================
+
+const PATTERN_LOGIC = {
+  "PD1__VEGF": {
+    problem:
+      "单纯解除PD-1免疫抑制后，肿瘤血管异常及VEGF驱动的免疫抑制微环境仍可能限制T细胞浸润和持续应答。",
+
+    compensation:
+      "VEGF/VEGFR抑制可改善异常血管和免疫微环境，为PD-1通路解除免疫抑制提供更有利的效应环境。",
+
+    transferRule:
+      "如果新的PD-1类资产仍面临免疫浸润不足或VEGF相关微环境抑制，可参考PD-1 + VEGF这一已有组合模式寻找同机制替代分子。",
+
+    successCondition:
+      "适应症具有免疫治疗基础，同时存在明显血管生成/VEGF相关生物学。",
+
+    failureBoundary:
+      "需重点关注抗血管生成相关毒性、免疫毒性叠加、剂量以及不同瘤种对VEGF依赖程度。",
+
+    transferable:
+      true,
+  },
+
+  "PDL1__VEGF": {
+    problem:
+      "PD-L1阻断能够解除部分免疫逃逸，但VEGF驱动的血管异常和免疫抑制微环境仍可能限制疗效。",
+
+    compensation:
+      "VEGF/VEGFR抑制可改善肿瘤血管和免疫微环境，与PD-L1阻断形成机制互补。",
+
+    transferRule:
+      "可将已有PD-L1 + VEGF联合规律迁移至其他PD-L1资产或其他VEGF通路资产，但必须重新核对安全性和适应症。",
+
+    successCondition:
+      "更适合同时存在免疫治疗敏感性与血管生成驱动因素的肿瘤。",
+
+    failureBoundary:
+      "不同VEGF药物强度、半衰期和安全窗不同，不能仅凭同靶点直接认为临床效果等同。",
+
+    transferable:
+      true,
+  },
+
+  "CHEMOTHERAPY__PD1_VEGF_BISPECIFIC": {
+    problem:
+      "双功能免疫/抗血管生成机制仍可能受到初始肿瘤负荷、抗原释放不足和快速疾病进展限制。",
+
+    compensation:
+      "化疗可实现快速减瘤并促进肿瘤抗原释放，为PD-1×VEGF双功能机制提供更强的初始免疫启动条件。",
+
+    transferRule:
+      "如果同类PD-1×VEGF资产存在单药起效深度不足，可参考与化疗联合模式，但应优先迁移至相近瘤种和治疗线次。",
+
+    successCondition:
+      "疾病需要快速疾病控制，同时免疫+抗血管生成机制存在长期获益潜力。",
+
+    failureBoundary:
+      "骨髓抑制、感染、出血及整体耐受性可能限制联合剂量强度。",
+
+    transferable:
+      true,
+  },
+
+  "CHEMOTHERAPY__PDL1_VEGF_BISPECIFIC": {
+    problem:
+      "PD-L1×VEGF双功能机制可能仍存在早期减瘤速度不足或部分患者原发耐药。",
+
+    compensation:
+      "化疗提供直接细胞毒作用和抗原释放，与免疫解除抑制及抗血管生成形成三重作用。",
+
+    transferRule:
+      "已有PD-L1×VEGF + 化疗项目可作为其他同机制双抗资产联合化疗的参考Pattern。",
+
+    successCondition:
+      "适应症已有免疫联合化疗基础，且疾病进展速度要求较快起效。",
+
+    failureBoundary:
+      "需关注血小板、骨髓抑制、出血风险以及复杂联合下的剂量优化。",
+
+    transferable:
+      true,
+  },
+
+  "CTLA4__PD1": {
+    problem:
+      "单纯PD-1阻断主要作用于外周效应阶段，部分患者可能存在T细胞初始激活不足。",
+
+    compensation:
+      "CTLA-4阻断可增强T细胞启动与克隆扩增，与PD-1阻断形成不同免疫阶段的互补。",
+
+    transferRule:
+      "如果新的PD-1类资产面临免疫启动不足，可参考PD-1 + CTLA-4模式寻找CTLA-4类联合机会。",
+
+    successCondition:
+      "需要更强免疫激活、且患者能够承受更高免疫相关毒性的场景。",
+
+    failureBoundary:
+      "免疫相关AE明显增加，剂量、给药频率和患者选择非常关键。",
+
+    transferable:
+      true,
+  },
+
+  "BCL2__CD20": {
+    problem:
+      "单纯CD20介导B细胞清除后，部分异常B细胞仍可能通过抗凋亡机制存活。",
+
+    compensation:
+      "BCL-2抑制促进异常B细胞凋亡，与CD20介导的细胞清除形成互补。",
+
+    transferRule:
+      "在B细胞疾病中，如果新的CD20资产仍存在残留克隆，可参考CD20 + BCL-2模式寻找同机制候选。",
+
+    successCondition:
+      "疾病具有明确B细胞依赖及BCL-2抗凋亡特征。",
+
+    failureBoundary:
+      "需关注骨髓抑制、感染和肿瘤溶解相关风险。",
+
+    transferable:
+      true,
+  },
+
+  "BTK__CD20": {
+    problem:
+      "单纯CD20清除可能无法完全抑制持续存在的BCR信号和异常B细胞存活。",
+
+    compensation:
+      "BTK抑制阻断BCR信号，与CD20介导的B细胞清除形成机制互补。",
+
+    transferRule:
+      "如果某CD20资产存在B细胞持续信号或残留问题，可参考CD20 + BTK模式寻找其他BTK类资产。",
+
+    successCondition:
+      "疾病生物学存在明显BCR/BTK依赖。",
+
+    failureBoundary:
+      "感染、出血、心血管风险及长期联合耐受性需重点评价。",
+
+    transferable:
+      true,
+  },
+
+  "CHEMOTHERAPY__EGFR": {
+    problem:
+      "EGFR抑制能够针对驱动通路，但可能无法覆盖所有异质性克隆或快速控制高肿瘤负荷。",
+
+    compensation:
+      "化疗可提供非靶点依赖的细胞毒作用，帮助覆盖异质性亚克隆。",
+
+    transferRule:
+      "如果新EGFR资产单药存在早期疾病控制不足，可参考EGFR + 化疗模式。",
+
+    successCondition:
+      "明确EGFR驱动，同时存在需要提高初始疾病控制率的场景。",
+
+    failureBoundary:
+      "联合增加骨髓抑制和整体治疗负担，需权衡单药已较好疗效的场景。",
+
+    transferable:
+      true,
+  },
+
+  "PARP__PD1": {
+    problem:
+      "PARP抑制造成DNA损伤后可能增加免疫原性，但免疫抑制仍可能限制抗肿瘤免疫。",
+
+    compensation:
+      "PD-1阻断可能帮助利用DNA损伤产生的免疫原性信号。",
+
+    transferRule:
+      "在DNA修复缺陷或高基因组不稳定人群中，可以参考PARP + PD-1模式探索同机制资产迁移。",
+
+    successCondition:
+      "更可能依赖HRD、BRCA或其他DNA修复异常人群选择。",
+
+    failureBoundary:
+      "临床获益并非在所有患者中稳定，biomarker选择和骨髓毒性非常重要。",
+
+    transferable:
+      true,
+  },
+};
+
+// ============================================================
+// Combination Pattern Engine
+// ============================================================
 
 function buildCombinationPatterns(
   existingCombinations
@@ -894,41 +1167,60 @@ function buildCombinationPatterns(
 
   for (
     const combo of
-    existingCombinations || []
+    existingCombinations ||
+    []
   ) {
-    const mechanismA =
-      mechanismOf(
-        combo.a
-      );
+    const ma =
+      mechanismOf(combo.a);
 
-    const mechanismB =
-      mechanismOf(
-        combo.b
-      );
+    const mb =
+      mechanismOf(combo.b);
 
-    // 如果两边机制都不知道，
-    // 当前无法形成有意义的 Pattern
     if (
-      mechanismA.id ===
-        "UNKNOWN" &&
-      mechanismB.id ===
+      ma.id ===
+        "UNKNOWN" ||
+      mb.id ===
         "UNKNOWN"
     ) {
       continue;
     }
 
-    const mechanisms = [
-      mechanismA,
-      mechanismB,
-    ].sort(
-      (x, y) =>
-        x.id.localeCompare(
-          y.id
-        )
-    );
+    const sorted =
+      [
+        ma,
+        mb,
+      ].sort(
+        (x, y) =>
+          x.id.localeCompare(
+            y.id
+          )
+      );
 
     const patternKey =
-      `${mechanisms[0].id}__${mechanisms[1].id}`;
+      `${sorted[0].id}__${sorted[1].id}`;
+
+    const logic =
+      PATTERN_LOGIC[
+        patternKey
+      ] || {
+        problem:
+          "已有临床联合提示两个机制可能存在互补，但当前规则库尚未完成具体问题定义。",
+
+        compensation:
+          "需要进一步通过机制文献和临床结果解释两者之间的补偿关系。",
+
+        transferRule:
+          "暂不自动迁移。",
+
+        successCondition:
+          "待补充。",
+
+        failureBoundary:
+          "待补充。",
+
+        transferable:
+          false,
+      };
 
     if (
       !patternMap.has(
@@ -941,16 +1233,20 @@ function buildCombinationPatterns(
           id:
             patternKey,
 
+          mechanismAId:
+            sorted[0].id,
+
+          mechanismBId:
+            sorted[1].id,
+
           mechanismA:
-            mechanisms[0]
-              .label,
+            sorted[0].label,
 
           mechanismB:
-            mechanisms[1]
-              .label,
+            sorted[1].label,
 
           pattern:
-            `${mechanisms[0].label} + ${mechanisms[1].label}`,
+            `${sorted[0].label} + ${sorted[1].label}`,
 
           sourceCombinations:
             [],
@@ -958,17 +1254,32 @@ function buildCombinationPatterns(
           indications:
             new Set(),
 
-          trialCount: 0,
+          trialCount:
+            0,
 
-          activeTrials: 0,
+          activeTrials:
+            0,
 
-          failedTrials: 0,
+          failedTrials:
+            0,
 
-          // 当前阶段先记录“已有临床模式”
-          // 下一阶段再加入：
-          // Problem / Compensation / Success condition / Failure boundary
-          interpretation:
-            "该模式来自真实临床联合项目，可作为后续潜在新组合推导的证据输入。",
+          problem:
+            logic.problem,
+
+          compensation:
+            logic.compensation,
+
+          transferRule:
+            logic.transferRule,
+
+          successCondition:
+            logic.successCondition,
+
+          failureBoundary:
+            logic.failureBoundary,
+
+          transferable:
+            logic.transferable,
         }
       );
     }
@@ -1033,7 +1344,7 @@ function buildCombinationPatterns(
         sourceCombinations:
           pattern
             .sourceCombinations
-            .slice(0, 8),
+            .slice(0, 10),
 
         evidenceStrength:
           pattern.trialCount >=
@@ -1077,9 +1388,6 @@ function buildFailures(
 
 // ============================================================
 // 未解决问题
-//
-// 当前仍然是“信号级”识别。
-// 下一阶段会把 Problem 真正和 Pattern 连接起来。
 // ============================================================
 
 function buildUnmetProblems(
@@ -1103,10 +1411,10 @@ function buildUnmetProblems(
           t.nctId,
 
         problem:
-          "该项目出现终止/暂停/撤回信号，需要判断失败原因是否可被新的联合策略补偿。",
+          "项目出现终止/暂停/撤回信号，需要进一步判断是机制失败、分子问题、疗效不足、安全性还是患者选择问题。",
 
         mechanismNeed:
-          "优先拆解疗效不足、毒性、耐药/逃逸、患者选择、biomarker和研究设计问题。",
+          "如果问题具有明确可补偿机制，可与已有Combination Pattern进行匹配。",
       });
     }
 
@@ -1122,10 +1430,10 @@ function buildUnmetProblems(
           t.nctId,
 
         problem:
-          "项目已完成，需要进一步核对是否存在疗效深度、持续性或特定人群获益限制。",
+          "项目已完成，需要进一步确认疗效深度、持续性和特定人群获益限制。",
 
         mechanismNeed:
-          "根据正式结果判断下一步应增强疗效、延长持续时间还是改善患者选择。",
+          "根据结果寻找可以改善疗效深度、持续性或患者选择的组合模式。",
       });
     }
   }
@@ -1135,222 +1443,563 @@ function buildUnmetProblems(
 }
 
 // ============================================================
-// Potential Combination
+// 建立“机制 → 当前真实分子”索引
 //
-// 重要：
-// 当前函数仍保留第一版候选生成逻辑，
-// 但后续下一步我们会完整替换这里。
-// 真正目标是：
-//
-// Existing Pattern
-// → Problem Match
-// → Mechanism Transfer
-// → Candidate B
-// → Existing A+B Check
-// → Potential New Combination
-//
+// 这一步的作用：
+// Pattern告诉我们需要什么机制。
+// 然后从当前真实项目中寻找同机制的其他分子。
 // ============================================================
 
-function buildPotentialCombinations(
-  trials,
-  existingCombinations
+function buildMechanismDrugIndex(
+  trials
 ) {
-  const existingSet =
-    new Set(
-      existingCombinations.map(
-        (x) =>
-          norm(
-            [
-              x.a,
-              x.b,
-            ]
-              .sort()
-              .join(" + ")
-          )
-      )
-    );
-
-  const riskInterventions =
+  const map =
     new Map();
 
-  for (
-    const t of trials
-  ) {
-    if (
-      !RISK.has(
-        t.status
-      )
-    ) {
-      continue;
-    }
-
+  for (const t of trials) {
     for (
       const drug of
       t.interventions || []
     ) {
+      const mechanism =
+        mechanismOf(drug);
+
       if (
-        !riskInterventions.has(
-          drug
+        mechanism.id ===
+        "UNKNOWN"
+      ) {
+        continue;
+      }
+
+      if (
+        !map.has(
+          mechanism.id
         )
       ) {
-        riskInterventions.set(
-          drug,
+        map.set(
+          mechanism.id,
+          new Map()
+        );
+      }
+
+      const drugMap =
+        map.get(
+          mechanism.id
+        );
+
+      const drugKey =
+        norm(drug);
+
+      if (
+        !drugMap.has(
+          drugKey
+        )
+      ) {
+        drugMap.set(
+          drugKey,
           {
             drug,
 
-            count: 0,
+            mechanismId:
+              mechanism.id,
 
-            trials: [],
+            mechanism:
+              mechanism.label,
+
+            activeTrials:
+              0,
+
+            riskTrials:
+              0,
+
+            indications:
+              new Set(),
+
+            nctIds:
+              [],
           }
         );
       }
 
       const x =
-        riskInterventions.get(
-          drug
+        drugMap.get(
+          drugKey
         );
 
-      x.count++;
+      if (
+        RISK.has(
+          t.status
+        )
+      ) {
+        x.riskTrials++;
+      } else {
+        x.activeTrials++;
+      }
+
+      for (
+        const indication of
+        t.conditions || []
+      ) {
+        x.indications.add(
+          indication
+        );
+      }
 
       if (
-        x.trials.length < 3
+        t.nctId &&
+        x.nctIds.length < 5
       ) {
-        x.trials.push(
+        x.nctIds.push(
           t.nctId
         );
       }
     }
   }
 
-  const candidatePool =
+  const result =
     new Map();
 
   for (
-    const t of trials
+    const [
+      mechanismId,
+      drugMap,
+    ] of map
+  ) {
+    result.set(
+      mechanismId,
+      [
+        ...drugMap.values(),
+      ].map((x) => ({
+        ...x,
+
+        indications: [
+          ...x.indications,
+        ].slice(0, 10),
+      }))
+    );
+  }
+
+  return result;
+}
+
+// ============================================================
+// ClinicalTrials.gov 全库确认 A+B 是否已经存在
+//
+// 不是只看当前40条。
+// 对候选组合再做一次独立检索。
+// ============================================================
+
+async function verifyExactCombination(
+  a,
+  b
+) {
+  try {
+    const url =
+      new URL(
+        "https://clinicaltrials.gov/api/v2/studies"
+      );
+
+    url.searchParams.set(
+      "query.term",
+      `${a} AND ${b}`
+    );
+
+    url.searchParams.set(
+      "pageSize",
+      "20"
+    );
+
+    url.searchParams.set(
+      "format",
+      "json"
+    );
+
+    const res =
+      await fetch(
+        url,
+        {
+          headers: {
+            Accept:
+              "application/json",
+          },
+
+          cache:
+            "no-store",
+        }
+      );
+
+    if (!res.ok) {
+      return {
+        exists:
+          false,
+
+        verified:
+          false,
+
+        nctIds:
+          [],
+      };
+    }
+
+    const json =
+      await res.json();
+
+    const studies =
+      (json.studies || [])
+        .map(classify);
+
+    const na =
+      norm(a);
+
+    const nb =
+      norm(b);
+
+    const hits =
+      studies.filter(
+        (study) => {
+          const names =
+            (
+              study.interventions ||
+              []
+            ).map(norm);
+
+          const hasA =
+            names.some(
+              (x) =>
+                x === na ||
+                x.includes(na) ||
+                na.includes(x)
+            );
+
+          const hasB =
+            names.some(
+              (x) =>
+                x === nb ||
+                x.includes(nb) ||
+                nb.includes(x)
+            );
+
+          return (
+            hasA &&
+            hasB
+          );
+        }
+      );
+
+    return {
+      exists:
+        hits.length > 0,
+
+      verified:
+        true,
+
+      nctIds:
+        hits
+          .map(
+            (x) =>
+              x.nctId
+          )
+          .filter(Boolean)
+          .slice(0, 5),
+    };
+  } catch {
+    return {
+      exists:
+        false,
+
+      verified:
+        false,
+
+      nctIds:
+        [],
+    };
+  }
+}
+
+// ============================================================
+// Potential New Combination Engine V2
+//
+// 核心逻辑：
+//
+// Existing Combination
+// → Combination Pattern
+// → 找同机制其他分子
+// → Pattern迁移
+// → 当前检索排除已有A+B
+// → ClinicalTrials全库再次确认
+// → Potential New Combination
+// ============================================================
+
+async function buildPotentialCombinations(
+  trials,
+  existingCombinations,
+  combinationPatterns
+) {
+  const existingSet =
+    new Set(
+      existingCombinations.map(
+        (x) =>
+          pairKey(
+            x.a,
+            x.b
+          )
+      )
+    );
+
+  const mechanismIndex =
+    buildMechanismDrugIndex(
+      trials
+    );
+
+  const candidateMap =
+    new Map();
+
+  for (
+    const pattern of
+    combinationPatterns
   ) {
     if (
-      RISK.has(
-        t.status
-      )
+      !pattern.transferable
+    ) {
+      continue;
+    }
+
+    const drugsA =
+      mechanismIndex.get(
+        pattern.mechanismAId
+      ) || [];
+
+    const drugsB =
+      mechanismIndex.get(
+        pattern.mechanismBId
+      ) || [];
+
+    if (
+      !drugsA.length ||
+      !drugsB.length
     ) {
       continue;
     }
 
     for (
-      const drug of
-      t.interventions || []
+      const a of drugsA
     ) {
-      if (
-        !candidatePool.has(
-          drug
-        )
-      ) {
-        candidatePool.set(
-          drug,
-          {
-            drug,
-
-            activeTrials: 0,
-
-            indications:
-              new Set(),
-          }
-        );
-      }
-
-      const x =
-        candidatePool.get(
-          drug
-        );
-
-      x.activeTrials++;
-
       for (
-        const c of
-        t.conditions || []
+        const b of drugsB
       ) {
-        x.indications.add(c);
+        if (
+          norm(a.drug) ===
+          norm(b.drug)
+        ) {
+          continue;
+        }
+
+        const key =
+          pairKey(
+            a.drug,
+            b.drug
+          );
+
+        // 当前检索已经明确存在的组合
+        if (
+          existingSet.has(
+            key
+          )
+        ) {
+          continue;
+        }
+
+        // 候选至少一边应有活跃临床开发
+        if (
+          a.activeTrials === 0 ||
+          b.activeTrials === 0
+        ) {
+          continue;
+        }
+
+        const indicationOverlap =
+          overlap(
+            a.indications,
+            b.indications
+          );
+
+        const patternIndicationOverlap =
+          overlap(
+            [
+              ...a.indications,
+              ...b.indications,
+            ],
+            pattern.indications
+          );
+
+        const sourceExamples =
+          pattern
+            .sourceCombinations
+            .slice(0, 3)
+            .map(
+              (x) =>
+                x.combo
+            );
+
+        const score =
+          pattern.trialCount * 3 +
+          pattern.activeTrials * 2 +
+          a.activeTrials +
+          b.activeTrials +
+          indicationOverlap.length * 3 +
+          patternIndicationOverlap.length * 2 -
+          a.riskTrials -
+          b.riskTrials;
+
+        const candidate = {
+          a:
+            a.drug,
+
+          b:
+            b.drug,
+
+          mechanismA:
+            a.mechanism,
+
+          mechanismB:
+            b.mechanism,
+
+          problem:
+            pattern.problem,
+
+          compensation:
+            pattern.compensation,
+
+          rationale:
+            `该候选不是随机配对，而是由已有“${pattern.pattern}”临床联合模式迁移而来。参考真实组合包括：${
+              sourceExamples.join(
+                "；"
+              ) ||
+              "已有同机制联合项目"
+            }。`,
+
+          referencePattern:
+            pattern.pattern,
+
+          patternSource:
+            sourceExamples,
+
+          transferRule:
+            pattern.transferRule,
+
+          successCondition:
+            pattern.successCondition,
+
+          failureBoundary:
+            pattern.failureBoundary,
+
+          evidenceStrength:
+            pattern.evidenceStrength,
+
+          sharedIndications:
+            indicationOverlap
+              .slice(0, 5),
+
+          patternIndications:
+            patternIndicationOverlap
+              .slice(0, 5),
+
+          developmentStatus:
+            "待进行ClinicalTrials.gov全库组合核对",
+
+          evidenceGap:
+            "仍需补充PubMed机制证据、前临床协同、真实临床结果、安全窗以及具体适应症和患者选择依据。",
+
+          score,
+        };
+
+        if (
+          !candidateMap.has(
+            key
+          ) ||
+          candidate.score >
+            candidateMap.get(
+              key
+            ).score
+        ) {
+          candidateMap.set(
+            key,
+            candidate
+          );
+        }
       }
     }
   }
 
-  const potential = [];
+  const initialCandidates =
+    [
+      ...candidateMap.values(),
+    ]
+      .sort(
+        (a, b) =>
+          b.score -
+          a.score
+      )
+      .slice(0, 12);
+
+  // 对Top候选再查一次ClinicalTrials全库
+  const checks =
+    await Promise.all(
+      initialCandidates.map(
+        async (
+          candidate
+        ) => {
+          const check =
+            await verifyExactCombination(
+              candidate.a,
+              candidate.b
+            );
+
+          return {
+            candidate,
+            check,
+          };
+        }
+      )
+    );
+
+  const result = [];
 
   for (
-    const [
-      a,
-      riskInfo,
-    ] of
-    riskInterventions
+    const {
+      candidate,
+      check,
+    } of checks
   ) {
-    const candidates = [
-      ...candidatePool.values(),
-    ]
-      .filter(
-        (x) =>
-          x.drug !== a
-      )
-      .sort(
-        (x, y) =>
-          y.activeTrials -
-          x.activeTrials
-      )
-      .slice(0, 8);
-
-    for (
-      const candidate of
-      candidates
+    // 如果已经明确存在真实A+B，
+    // 就不能再作为Potential New Combination
+    if (
+      check.verified &&
+      check.exists
     ) {
-      const pairKey =
-        norm(
-          [
-            a,
-            candidate.drug,
-          ]
-            .sort()
-            .join(" + ")
-        );
-
-      if (
-        existingSet.has(
-          pairKey
-        )
-      ) {
-        continue;
-      }
-
-      potential.push({
-        a,
-
-        problem:
-          `A 在当前检索结果中出现 ${riskInfo.count} 个失败/暂停相关试验，需要进一步拆解真正限制因素。`,
-
-        b:
-          candidate.drug,
-
-        compensation:
-          "候选B当前有活跃临床开发，但其是否能够补偿A的具体机制问题仍需验证。",
-
-        rationale:
-          "当前未在本次检索结果中发现明确A+B临床开发记录，因此暂时进入观察池；该结果目前不是机制推理结论。",
-
-        developmentStatus:
-          "当前检索未发现明确A+B临床组合",
-
-        evidenceGap:
-          "尚缺A的具体失败机制、已有Combination Pattern迁移依据、B对该问题的补偿证据、前临床协同和安全性证据。",
-      });
-
-      if (
-        potential.length >=
-        20
-      ) {
-        return potential;
-      }
+      continue;
     }
+
+    result.push({
+      ...candidate,
+
+      developmentStatus:
+        check.verified
+          ? "ClinicalTrials.gov全库暂未发现明确A+B临床开发"
+          : "组合核对未完全完成，需人工再次确认",
+
+      verification:
+        check.verified
+          ? "ClinicalTrials.gov已核对"
+          : "ClinicalTrials.gov核对失败/不完整",
+
+      verifiedExistingNctIds:
+        check.nctIds,
+    });
   }
 
-  return potential;
+  return result
+    .slice(0, 10);
 }
 
 // ============================================================
@@ -1392,7 +2041,8 @@ async function pubmed(q) {
     await fetch(
       search,
       {
-        cache: "no-store",
+        cache:
+          "no-store",
       }
     );
 
@@ -1435,7 +2085,8 @@ async function pubmed(q) {
     await fetch(
       summary,
       {
-        cache: "no-store",
+        cache:
+          "no-store",
       }
     );
 
@@ -1549,6 +2200,7 @@ export async function GET(
     await Promise.allSettled(
       [
         ...tasks,
+
         pubmed(q),
       ]
     );
@@ -1665,7 +2317,7 @@ export async function GET(
     ).slice(0, 40);
 
   // ==========================================================
-  // 1. 高价值 Signal
+  // 1. High-Value Signal
   // ==========================================================
 
   const highValueSignals =
@@ -1685,7 +2337,7 @@ export async function GET(
       .slice(0, 10);
 
   // ==========================================================
-  // 2. 失败 / 暂停
+  // 2. 失败项目
   // ==========================================================
 
   const failures =
@@ -1703,7 +2355,7 @@ export async function GET(
     );
 
   // ==========================================================
-  // 4. 从已有组合提取 Combination Pattern
+  // 4. 已有组合 → Pattern
   // ==========================================================
 
   const combinationPatterns =
@@ -1712,7 +2364,7 @@ export async function GET(
     );
 
   // ==========================================================
-  // 5. 当前未解决问题
+  // 5. 未解决问题
   // ==========================================================
 
   const unmetProblems =
@@ -1721,16 +2373,14 @@ export async function GET(
     );
 
   // ==========================================================
-  // 6. 潜在组合
-  //
-  // 下一步我们会重点重写这里：
-  // Pattern → Problem → Transfer → New Combination
+  // 6. Pattern → Potential New Combination
   // ==========================================================
 
   const potentialCombinations =
-    buildPotentialCombinations(
+    await buildPotentialCombinations(
       trials,
-      existingCombinations
+      existingCombinations,
+      combinationPatterns
     );
 
   return Response.json({
@@ -1753,8 +2403,6 @@ export async function GET(
 
     existingCombinations,
 
-    // 新增：
-    // 已有真实组合形成的组合模式库
     combinationPatterns,
 
     unmetProblems,
@@ -1782,6 +2430,12 @@ export async function GET(
 
       combinationPatternCount:
         combinationPatterns.length,
+
+      transferablePatternCount:
+        combinationPatterns.filter(
+          (x) =>
+            x.transferable
+        ).length,
 
       potentialCombinationCount:
         potentialCombinations.length,
