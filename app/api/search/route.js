@@ -1,240 +1,175 @@
 export const dynamic = "force-dynamic";
 
-function safe(v, fallback = "") {
-  return v ?? fallback;
-}
+const RISK = new Set(["TERMINATED","WITHDRAWN","SUSPENDED"]);
 
-function recencyDays(dateString) {
-  if (!dateString) return 99999;
-  const d = new Date(dateString);
-  if (Number.isNaN(d.getTime())) return 99999;
-  return Math.floor((Date.now() - d.getTime()) / 86400000);
+function clean(x=""){ return String(x || "").trim(); }
+function norm(x=""){ return clean(x).toLowerCase().replace(/[^\p{L}\p{N}]+/gu," "); }
+function daysAgo(s){
+  if(!s) return 99999;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? 99999 : Math.floor((Date.now()-d.getTime())/86400000);
 }
+function exactTokens(q){ return norm(q).split(/\s+/).filter(Boolean); }
 
-function classifyTrial(study) {
+function classify(study){
   const p = study.protocolSection || {};
   const id = p.identificationModule || {};
-  const status = p.statusModule || {};
-  const design = p.designModule || {};
-  const sponsor = p.sponsorCollaboratorsModule || {};
-  const cond = p.conditionsModule || {};
+  const s = p.statusModule || {};
+  const d = p.designModule || {};
+  const c = p.conditionsModule || {};
   const ai = p.armsInterventionsModule || {};
-  const interventions = (ai.interventions || []).map(x => x.name).filter(Boolean);
-  const updated = status.lastUpdatePostDateStruct?.date || "";
-  const overall = safe(status.overallStatus, "UNKNOWN");
-  const phases = design.phases || [];
+  const sponsor = p.sponsorCollaboratorsModule || {};
+  const interventions = (ai.interventions || []).map(x=>clean(x.name)).filter(Boolean);
+  const conditions = (c.conditions || []).map(clean).filter(Boolean);
+  const aliases = (c.keywords || []).map(clean).filter(Boolean);
+  const updated = s.lastUpdatePostDateStruct?.date || "";
+  const status = s.overallStatus || "UNKNOWN";
+  const phases = d.phases || [];
 
-  let signalType = "ACTIVE";
-  let signalLabel = "持续开发";
-  if (["TERMINATED", "WITHDRAWN", "SUSPENDED"].includes(overall)) {
-    signalType = "RISK";
-    signalLabel = "失败/暂停信号";
-  } else if (["COMPLETED"].includes(overall)) {
-    signalType = "READOUT";
-    signalLabel = "已完成，关注结果";
-  } else if (recencyDays(updated) <= 60) {
-    signalType = "NEW";
-    signalLabel = "近期更新";
-  }
+  let signalType="ACTIVE", signalLabel="持续开发";
+  if(RISK.has(status)){ signalType="RISK"; signalLabel="失败/暂停信号"; }
+  else if(status==="COMPLETED"){ signalType="READOUT"; signalLabel="已完成，关注结果"; }
+  else if(daysAgo(updated)<=90){ signalType="NEW"; signalLabel="近期更新"; }
 
-  const hasCombo = interventions.length >= 2;
   return {
-    nctId: id.nctId,
-    title: id.briefTitle || id.officialTitle || id.nctId,
-    status: overall,
-    phase: phases.join(", ") || "NA",
-    sponsor: sponsor.leadSponsor?.name || "Unknown",
-    conditions: cond.conditions || [],
-    interventions,
-    updated,
-    signalType,
-    signalLabel,
-    hasCombo,
-    url: id.nctId ? `https://clinicaltrials.gov/study/${id.nctId}` : null
+    nctId:id.nctId,
+    title:id.briefTitle || id.officialTitle || id.nctId,
+    status, phase:phases.join(", ") || "NA",
+    sponsor:sponsor.leadSponsor?.name || "Unknown",
+    conditions, aliases, interventions, updated,
+    signalType, signalLabel,
+    url:id.nctId ? `https://clinicaltrials.gov/study/${id.nctId}` : null
   };
 }
 
-function buildCombinationInsights(trials, query) {
-  const co = new Map();
-  const solo = new Map();
+function conditionRelevance(t,q){
+  const nq = norm(q);
+  const toks = exactTokens(q);
+  const hay = norm([...(t.conditions||[]), ...(t.aliases||[])].join(" "));
+  if(!hay) return 0;
+  if(hay.includes(nq)) return 100;
+  let s=0;
+  for(const tok of toks) if(tok.length>1 && hay.includes(tok)) s+=15;
+  return s;
+}
 
-  for (const t of trials) {
-    const names = [...new Set(t.interventions || [])];
-    for (const n of names) {
-      if (!solo.has(n)) solo.set(n, { name: n, trials: 0, risk: 0, active: 0 });
-      const x = solo.get(n);
-      x.trials += 1;
-      if (t.signalType === "RISK") x.risk += 1;
-      else x.active += 1;
-    }
-    if (names.length >= 2) {
-      for (let i = 0; i < names.length; i++) {
-        for (let j = i + 1; j < names.length; j++) {
-          const key = [names[i], names[j]].sort().join(" + ");
-          if (!co.has(key)) co.set(key, {
-            combo: key,
-            trials: 0,
-            active: 0,
-            risk: 0,
-            recent: 0,
-            examples: []
-          });
-          const x = co.get(key);
-          x.trials += 1;
-          if (t.signalType === "RISK") x.risk += 1;
-          else x.active += 1;
-          if (recencyDays(t.updated) <= 180) x.recent += 1;
-          if (x.examples.length < 3) x.examples.push(t.nctId);
-        }
+function generalRelevance(t,q){
+  const toks = exactTokens(q);
+  const hay = norm([t.title, ...(t.conditions||[]), ...(t.aliases||[]), ...(t.interventions||[]), t.sponsor].join(" "));
+  let s=0;
+  for(const tok of toks) if(tok.length>1 && hay.includes(tok)) s+=10;
+  if(norm(t.title).includes(norm(q))) s+=25;
+  return s;
+}
+
+async function fetchTrials(q, kind="term", pageSize=40){
+  const url = new URL("https://clinicaltrials.gov/api/v2/studies");
+  url.searchParams.set(kind==="condition" ? "query.cond" : "query.term", q);
+  url.searchParams.set("pageSize", String(pageSize));
+  url.searchParams.set("format","json");
+  const res = await fetch(url,{headers:{Accept:"application/json"},cache:"no-store"});
+  if(!res.ok) throw new Error(`ClinicalTrials.gov ${res.status}`);
+  const j=await res.json();
+  return (j.studies||[]).map(classify);
+}
+
+function dedupe(arr){
+  const m=new Map();
+  for(const x of arr) if(x.nctId && !m.has(x.nctId)) m.set(x.nctId,x);
+  return [...m.values()];
+}
+
+function buildCombinations(trials){
+  const map=new Map();
+  for(const t of trials){
+    const names=[...new Set((t.interventions||[]).filter(x=>x.length>1))];
+    // 避免把拥有很多干预臂的大型比较研究机械组合成大量“伪组合”
+    if(names.length<2 || names.length>6) continue;
+    for(let i=0;i<names.length;i++){
+      for(let j=i+1;j<names.length;j++){
+        const pair=[names[i],names[j]].sort();
+        const key=pair.join(" + ");
+        if(!map.has(key)) map.set(key,{
+          combo:key,a:pair[0],b:pair[1],trials:0,active:0,risk:0,recent:0,
+          indications:new Set(), phases:new Set(), ncts:[]
+        });
+        const x=map.get(key);
+        x.trials++;
+        if(t.signalType==="RISK") x.risk++; else x.active++;
+        if(daysAgo(t.updated)<=180) x.recent++;
+        (t.conditions||[]).slice(0,4).forEach(v=>x.indications.add(v));
+        if(t.phase && t.phase!=="NA") x.phases.add(t.phase);
+        if(x.ncts.length<5) x.ncts.push(t.nctId);
       }
     }
   }
-
-  const combos = [...co.values()]
-    .map(x => {
-      let score = x.active * 3 + x.recent * 2 + x.trials - x.risk * 2;
-      let evidence = "早期/有限";
-      if (x.trials >= 5 && x.active >= 3) evidence = "较多临床开发证据";
-      else if (x.trials >= 2) evidence = "已有多个临床项目";
-      return {
-        ...x,
-        score,
-        evidence,
-        interpretation:
-          x.risk > 0
-            ? "已有联合开发，同时存在失败/暂停反例；需要按适应症、剂量、人群和失败原因拆解。"
-            : "存在真实联合临床开发，可进一步核对机制互补、疗效增益和安全性。"
-      };
-    })
-    .sort((a,b) => b.score - a.score)
-    .slice(0, 8);
-
-  const riskySingles = [...solo.values()]
-    .filter(x => x.risk > 0)
-    .sort((a,b) => b.risk - a.risk)
-    .slice(0, 6)
-    .map(x => ({
-      molecule: x.name,
-      issue: `在检索结果中出现 ${x.risk} 个终止/暂停/撤回试验记录`,
-      nextQuestion: "失败是分子/机制问题，还是人群、剂量、终点或战略原因？"
-    }));
-
-  return { query, combos, riskySingles };
+  return [...map.values()].map(x=>({
+    ...x,
+    indications:[...x.indications].slice(0,6),
+    phases:[...x.phases].slice(0,4),
+    score:x.active*3+x.recent*2+x.trials-x.risk*2,
+    evidence:x.trials>=5&&x.active>=3 ? "较多临床开发证据" : x.trials>=2 ? "已有多个临床项目" : "早期/有限"
+  })).sort((a,b)=>b.score-a.score).slice(0,20);
 }
 
-async function fetchTrials(q) {
-  const url = new URL("https://clinicaltrials.gov/api/v2/studies");
-  url.searchParams.set("query.term", q);
-  url.searchParams.set("pageSize", "25");
-  url.searchParams.set("format", "json");
-
-  const res = await fetch(url, {
-    headers: { "Accept": "application/json" },
-    next: { revalidate: 3600 }
-  });
-  if (!res.ok) throw new Error(`ClinicalTrials.gov ${res.status}`);
-  const json = await res.json();
-  return (json.studies || []).map(classifyTrial);
+async function pubmed(q){
+  const u=new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");
+  u.searchParams.set("db","pubmed");u.searchParams.set("term",q);
+  u.searchParams.set("retmode","json");u.searchParams.set("retmax","8");u.searchParams.set("sort","pub date");
+  const r=await fetch(u,{cache:"no-store"}); if(!r.ok) throw new Error(`PubMed ${r.status}`);
+  const j=await r.json(); const ids=j.esearchresult?.idlist||[]; if(!ids.length) return [];
+  const s=new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi");
+  s.searchParams.set("db","pubmed");s.searchParams.set("id",ids.join(","));s.searchParams.set("retmode","json");
+  const rr=await fetch(s,{cache:"no-store"}); const jj=await rr.json();
+  return ids.map(id=>{const x=jj.result?.[id]||{}; return {
+    pmid:id,title:x.title||"Untitled",journal:x.fulljournalname||x.source||"",pubdate:x.pubdate||"",
+    url:`https://pubmed.ncbi.nlm.nih.gov/${id}/`
+  }});
 }
 
-async function fetchCrossref(q) {
-  const since = new Date();
-  since.setFullYear(since.getFullYear() - 5);
-  const ymd = since.toISOString().slice(0, 10);
+export async function GET(request){
+  const {searchParams}=new URL(request.url);
+  const q=clean(searchParams.get("q")||"PD-L1 VEGF").slice(0,180);
+  const mode=searchParams.get("mode")||"auto";
 
-  const url = new URL("https://api.crossref.org/works");
-  url.searchParams.set("query", q);
-  url.searchParams.set("filter", `from-pub-date:${ymd}`);
-  url.searchParams.set("rows", "12");
-  url.searchParams.set("sort", "published");
-  url.searchParams.set("order", "desc");
-  url.searchParams.set("select", "DOI,title,published,container-title,publisher,URL,type");
+  const tasks = mode==="condition"
+    ? [fetchTrials(q,"condition"), Promise.resolve([])]
+    : mode==="term"
+    ? [Promise.resolve([]), fetchTrials(q,"term")]
+    : [fetchTrials(q,"condition"), fetchTrials(q,"term")];
 
-  const res = await fetch(url, {
-    headers: { "Accept": "application/json", "User-Agent": "clinical-rd-intelligence/0.1" },
-    next: { revalidate: 3600 }
-  });
-  if (!res.ok) throw new Error(`Crossref ${res.status}`);
-  const json = await res.json();
-  return (json.message?.items || []).map(x => ({
-    title: x.title?.[0] || "Untitled",
-    journal: x["container-title"]?.[0] || x.publisher || "",
-    doi: x.DOI || "",
-    url: x.URL || (x.DOI ? `https://doi.org/${x.DOI}` : null),
-    published: x.published?.["date-parts"]?.[0]?.join("-") || "",
-    type: x.type || ""
-  }));
-}
+  const [condS,termS,pubS]=await Promise.allSettled([...tasks,pubmed(q)]);
+  let cond=condS.status==="fulfilled"?condS.value:[];
+  let term=termS.status==="fulfilled"?termS.value:[];
+  const papers=pubS.status==="fulfilled"?pubS.value:[];
 
-async function fetchPubMed(q) {
-  const search = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");
-  search.searchParams.set("db", "pubmed");
-  search.searchParams.set("term", q);
-  search.searchParams.set("retmode", "json");
-  search.searchParams.set("retmax", "10");
-  search.searchParams.set("sort", "pub date");
-  search.searchParams.set("tool", "clinical_rd_intelligence");
+  cond=cond.map(t=>({...t,relevance:conditionRelevance(t,q)})).sort((a,b)=>b.relevance-a.relevance);
+  term=term.map(t=>({...t,relevance:generalRelevance(t,q)})).sort((a,b)=>b.relevance-a.relevance);
 
-  const sr = await fetch(search, { next: { revalidate: 3600 } });
-  if (!sr.ok) throw new Error(`PubMed search ${sr.status}`);
-  const sj = await sr.json();
-  const ids = sj.esearchresult?.idlist || [];
-  if (!ids.length) return [];
+  let selectedMode=mode;
+  let trials=[];
+  if(mode==="condition") trials=cond;
+  else if(mode==="term") trials=term;
+  else {
+    const strongCond=cond.filter(x=>x.relevance>=15);
+    // 若疾病专用检索返回明确匹配，则优先使用，避免适应症查询被全文噪声淹没
+    if(strongCond.length>=3 || (strongCond.length>0 && strongCond[0].relevance>=100)){
+      selectedMode="condition";
+      trials=strongCond;
+    } else {
+      selectedMode="term";
+      trials=term;
+    }
+  }
 
-  const summary = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi");
-  summary.searchParams.set("db", "pubmed");
-  summary.searchParams.set("id", ids.join(","));
-  summary.searchParams.set("retmode", "json");
-  summary.searchParams.set("tool", "clinical_rd_intelligence");
-
-  const rr = await fetch(summary, { next: { revalidate: 3600 } });
-  if (!rr.ok) throw new Error(`PubMed summary ${rr.status}`);
-  const rj = await rr.json();
-
-  return ids.map(id => {
-    const x = rj.result?.[id] || {};
-    return {
-      pmid: id,
-      title: x.title || "Untitled",
-      journal: x.fulljournalname || x.source || "",
-      pubdate: x.pubdate || "",
-      authors: (x.authors || []).slice(0,3).map(a => a.name).join(", "),
-      url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`
-    };
-  });
-}
-
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const q = (searchParams.get("q") || "PD-L1 VEGF").trim().slice(0, 180);
-
-  const settled = await Promise.allSettled([
-    fetchTrials(q),
-    fetchCrossref(q),
-    fetchPubMed(q)
-  ]);
-
-  const trials = settled[0].status === "fulfilled" ? settled[0].value : [];
-  const crossref = settled[1].status === "fulfilled" ? settled[1].value : [];
-  const pubmed = settled[2].status === "fulfilled" ? settled[2].value : [];
-
-  const errors = settled
-    .map((x, i) => x.status === "rejected" ? ["ClinicalTrials.gov","Crossref","PubMed"][i] + ": " + x.reason?.message : null)
-    .filter(Boolean);
-
-  const insights = buildCombinationInsights(trials, q);
+  trials=dedupe(trials).slice(0,40);
 
   return Response.json({
-    query: q,
-    generatedAt: new Date().toISOString(),
-    sources: {
-      clinicalTrials: { live: true, count: trials.length },
-      crossref: { live: true, count: crossref.length },
-      pubmed: { live: true, count: pubmed.length }
-    },
-    errors,
-    trials,
-    publications: { crossref, pubmed },
-    insights
+    query:q, requestedMode:mode, selectedMode, generatedAt:new Date().toISOString(),
+    trials, publications:papers, combinations:buildCombinations(trials),
+    diagnostics:{
+      conditionHits:cond.length, strongConditionHits:cond.filter(x=>x.relevance>=15).length,
+      termHits:term.length
+    }
   });
 }
