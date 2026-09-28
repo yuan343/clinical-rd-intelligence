@@ -146,10 +146,11 @@ function pageTitle(tab) {
 
 /* =========================================================
    实时机会
-   新的主页面
    ========================================================= */
 
 function RealtimeSignals({ data }) {
+  const signalHypotheses = data.signalHypotheses || [];
+
   return (
     <>
       <section
@@ -171,7 +172,7 @@ function RealtimeSignals({ data }) {
           }}
         >
           从最新临床、机制和研发变化中识别新的联合机会；
-          已有联合项目和 Pattern 主要作为证据支持，而不是新机会的唯一来源。
+          已有联合项目和 Pattern 主要作为证据支持，不作为新机会的唯一来源。
         </div>
       </section>
 
@@ -187,13 +188,13 @@ function RealtimeSignals({ data }) {
         />
 
         <Metric
-          n={data.combinationPatterns?.length || 0}
-          l="可参考联合 Pattern"
+          n={signalHypotheses.length}
+          l="潜在联合假设"
         />
 
         <Metric
-          n={data.potentialCombinations?.length || 0}
-          l="On Going 迁移机会"
+          n={data.combinationPatterns?.length || 0}
+          l="可参考联合 Pattern"
         />
       </div>
 
@@ -201,9 +202,9 @@ function RealtimeSignals({ data }) {
         <h2>最新重点 Signal</h2>
 
         <div className="note">
-          当前数据主要来自 ClinicalTrials.gov；
-          下一阶段将接入临床结果、会议、公司公告、监管和最新机制文献，
-          用于真正的实时联合机会推导。
+          当前数据主要来自 ClinicalTrials.gov。
+          后续将继续接入临床结果、学术会议、公司公告、
+          监管动态和最新机制文献。
         </div>
 
         {data.highValueSignals?.length ? (
@@ -263,64 +264,73 @@ function RealtimeSignals({ data }) {
       </section>
 
       <section className="card section">
-  <h2>预计可组合方向</h2>
+        <h2>潜在联合假设</h2>
 
-  <div className="note">
-    这里展示基于当前研发 Signal 和已有联合规律形成的候选联合方向。
-    下一步将进一步升级为实时 Signal 驱动的联合假设。
-  </div>
+        <div className="note">
+          这里仅展示由最新研发 Signal 触发形成的新联合方向。
+          已有联合 Pattern 的迁移机会统一放在 On Going 模块中，
+          不再混入这里。
+        </div>
 
-  {(data.potentialCombinations || []).length ? (
-    <table>
-      <thead>
-        <tr>
-          <th>预计联合方向</th>
-          <th>触发依据</th>
-          <th>潜在互补逻辑</th>
-          <th>参考 Pattern</th>
-          <th>现有开发核对</th>
-          <th>时间窗口</th>
-        </tr>
-      </thead>
+        {signalHypotheses.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>潜在联合方向</th>
+                <th>触发 Signal</th>
+                <th>当前研发问题</th>
+                <th>潜在互补机制</th>
+                <th>推导依据</th>
+                <th>现有开发核对</th>
+                <th>时间窗口</th>
+              </tr>
+            </thead>
 
-      <tbody>
-        {data.potentialCombinations.slice(0, 8).map((x, i) => (
-          <tr key={i}>
-            <td>
-              <b>{x.a} + {x.b}</b>
+            <tbody>
+              {signalHypotheses.map((x, i) => (
+                <tr key={i}>
+                  <td>
+                    <b>
+                      {x.a} + {x.b}
+                    </b>
 
-              <div className="small">
-                {x.mechanismA} + {x.mechanismB}
-              </div>
-            </td>
+                    <div className="small">
+                      {x.mechanismA} + {x.mechanismB}
+                    </div>
+                  </td>
 
-            <td>
-              {x.problem || "基于当前研发 Signal / Pattern 推导"}
-            </td>
+                  <td>{x.triggerSignal || "-"}</td>
 
-            <td>{x.compensation}</td>
+                  <td>{x.problem || "-"}</td>
 
-            <td>{x.referencePattern || "-"}</td>
+                  <td>{x.compensation || "-"}</td>
 
-            <td>{x.developmentStatus}</td>
+                  <td>{x.rationale || "-"}</td>
 
-            <td>当前待评估</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  ) : (
-    <div className="muted">
-      当前检索暂未形成可展示的联合假设。
-    </div>
-  )}
-</section>    
+                  <td>
+                    {x.developmentStatus || "待核对"}
+                  </td>
+
+                  <td>
+                    {x.marketWindow || "待评估"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="muted">
+            当前尚未生成实时 Signal 驱动的潜在联合假设。
+            下一步将接入 Signal-driven Combination Engine。
+          </div>
+        )}
+      </section>
+
       <section className="card section">
         <h2>Signal → 联合机会</h2>
 
         <div className="note">
-          这一部分将成为系统的核心：
-          从实时医学动态中形成新的 Combination Hypothesis。
+          实时机会的核心不是复制已有联合，而是从新的医学变化中提出新的联合假设。
         </div>
 
         <div
@@ -339,33 +349,28 @@ function RealtimeSignals({ data }) {
 
           <FlowCard
             title="2. 研发问题"
-            text="这个变化说明现有治疗还缺什么？疗效深度、持续性、耐药、安全性还是患者选择？"
+            text="判断现有治疗还缺什么：疗效深度、持续性、耐药、安全性或患者选择。"
           />
 
           <FlowCard
             title="3. 联合假设"
-            text="哪些新的机制可能解决这个问题？形成候选 A+B。"
+            text="寻找可能解决该问题的互补机制，形成新的候选 A+B。"
           />
 
           <FlowCard
             title="4. 证据验证"
-            text="用已有联合 Pattern、PubMed、临床数据和反例验证逻辑。"
+            text="使用 PubMed、已有联合 Pattern、临床结果和反例验证假设。"
           />
 
           <FlowCard
             title="5. 时间窗口"
-            text="核对竞争阶段、领先项目和赛道拥挤度，判断现在做是否仍有价值。"
+            text="核对领先项目阶段、竞争数量和赛道成熟度，判断现在做是否仍有价值。"
           />
         </div>
       </section>
 
       <section className="card section">
-        <h2>当前待升级能力</h2>
-
-        <div className="note">
-          这一页目前已经完成 Signal 展示，但尚未完成真正的
-          “实时 Signal → 新联合假设”自动推导。
-        </div>
+        <h2>当前能力状态</h2>
 
         <table>
           <thead>
@@ -378,33 +383,33 @@ function RealtimeSignals({ data }) {
 
           <tbody>
             <tr>
-              <td>临床试验动态</td>
+              <td>ClinicalTrials.gov 动态</td>
               <td>已接入</td>
-              <td>继续识别状态、Phase和项目变化</td>
+              <td>识别状态、Phase、联合和项目变化</td>
             </tr>
 
             <tr>
-              <td>PubMed文献</td>
+              <td>PubMed 文献</td>
               <td>已接入基础检索</td>
               <td>升级为机制、耐药和联合依据提取</td>
             </tr>
 
             <tr>
               <td>实时临床读出</td>
-              <td>待接入</td>
-              <td>会议 / 公司公告 / 论文结果结构化</td>
+              <td>待增强</td>
+              <td>接入会议、公司公告和正式结果</td>
             </tr>
 
             <tr>
-              <td>新联合假设</td>
-              <td>待开发</td>
+              <td>Signal 驱动联合假设</td>
+              <td>下一步开发</td>
               <td>Signal → Problem → Mechanism → Combination</td>
             </tr>
 
             <tr>
               <td>市场时间窗口</td>
-              <td>待开发</td>
-              <td>领先阶段、竞争数量、预计时间差</td>
+              <td>下一步开发</td>
+              <td>领先阶段、竞争密度、时间差和差异化空间</td>
             </tr>
           </tbody>
         </table>
@@ -414,8 +419,7 @@ function RealtimeSignals({ data }) {
 }
 
 /* =========================================================
-   ON GOING
-   把我们之前已经做好的整个体系收进这里
+   On Going｜在研联合
    ========================================================= */
 
 function OnGoing({ data }) {
@@ -461,7 +465,7 @@ function OnGoing({ data }) {
 
         <Metric
           n={potential.length}
-          l="迁移机会"
+          l="Pattern 迁移机会"
         />
 
         <Metric
@@ -577,7 +581,7 @@ function OnGoing({ data }) {
         <h2>基于 On Going Pattern 的迁移机会</h2>
 
         <div className="note">
-          这一部分来自已有临床联合规律的迁移，
+          这里来自已有临床联合规律的迁移。
           科学依据通常更成熟，但需要特别关注竞争进度和市场时间窗口。
         </div>
 
@@ -628,7 +632,7 @@ function OnGoing({ data }) {
           </table>
         ) : (
           <div className="muted">
-            当前检索暂未生成满足条件的迁移机会。
+            当前检索暂未生成满足条件的 Pattern 迁移机会。
           </div>
         )}
       </section>
@@ -637,7 +641,7 @@ function OnGoing({ data }) {
 }
 
 /* =========================================================
-   其他已有页面
+   终止 / 暂停项目
    ========================================================= */
 
 function Failures({ data }) {
@@ -646,7 +650,7 @@ function Failures({ data }) {
       <h2>终止 / 暂停项目</h2>
 
       <div className="note">
-        项目终止或暂停不等于机制失败；
+        项目终止或暂停不等于机制失败。
         需进一步区分疗效、安全性、剂量、患者选择、
         研究设计和公司战略等因素。
       </div>
@@ -705,6 +709,10 @@ function Failures({ data }) {
   );
 }
 
+/* =========================================================
+   临床项目
+   ========================================================= */
+
 function Trials({ trials }) {
   return (
     <section className="card">
@@ -740,9 +748,13 @@ function Trials({ trials }) {
               </td>
 
               <td>{t.title}</td>
+
               <td>{t.conditions.join("；")}</td>
+
               <td>{t.phase}</td>
+
               <td>{displayStatus(t.status)}</td>
+
               <td>{t.interventions.join(" + ")}</td>
             </tr>
           ))}
@@ -752,10 +764,18 @@ function Trials({ trials }) {
   );
 }
 
+/* =========================================================
+   PubMed
+   ========================================================= */
+
 function Papers({ papers }) {
   return (
     <section className="card">
       <h2>PubMed 文献证据</h2>
+
+      <div className="note">
+        当前用于补充机制和临床证据线索。
+      </div>
 
       {papers.length ? (
         papers.map((p) => (
@@ -781,6 +801,10 @@ function Papers({ papers }) {
     </section>
   );
 }
+
+/* =========================================================
+   信息来源
+   ========================================================= */
 
 function Sources({ data }) {
   return (
