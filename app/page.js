@@ -13,12 +13,18 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       setLoading(true);
+
       try {
         const r = await fetch(
           `/api/search?q=${encodeURIComponent(active)}&mode=${mode}`,
           { cache: "no-store" }
         );
-        setData(await r.json());
+
+        const json = await r.json();
+        setData(json);
+      } catch (e) {
+        console.error(e);
+        setData(null);
       } finally {
         setLoading(false);
       }
@@ -27,7 +33,10 @@ export default function Home() {
 
   function submit(e) {
     e.preventDefault();
-    if (q.trim()) setActive(q.trim());
+
+    if (q.trim()) {
+      setActive(q.trim());
+    }
   }
 
   return (
@@ -40,6 +49,7 @@ export default function Home() {
 
         {[
           ["radar", "情报雷达"],
+          ["patterns", "组合 Pattern"],
           ["existing", "已有组合证据"],
           ["potential", "潜在新组合"],
           ["failures", "失败项目"],
@@ -78,7 +88,10 @@ export default function Home() {
           </div>
 
           <form className="search" onSubmit={submit}>
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+            >
               <option value="auto">自动判断</option>
               <option value="condition">适应症</option>
               <option value="term">分子 / 靶点</option>
@@ -96,18 +109,21 @@ export default function Home() {
 
         {loading ? (
           <div className="card">正在读取实时数据…</div>
+        ) : !data ? (
+          <div className="card">数据读取失败，请稍后重试。</div>
         ) : (
-          data && (
-            <>
-              {tab === "radar" && <Radar data={data} />}
-              {tab === "existing" && <ExistingCombos data={data} />}
-              {tab === "potential" && <PotentialCombos data={data} />}
-              {tab === "failures" && <Failures data={data} />}
-              {tab === "trials" && <Trials trials={data.trials} />}
-              {tab === "papers" && <Papers papers={data.publications} />}
-              {tab === "sources" && <Sources data={data} />}
-            </>
-          )
+          <>
+            {tab === "radar" && <Radar data={data} />}
+            {tab === "patterns" && <Patterns data={data} />}
+            {tab === "existing" && <ExistingCombos data={data} />}
+            {tab === "potential" && <PotentialCombos data={data} />}
+            {tab === "failures" && <Failures data={data} />}
+            {tab === "trials" && <Trials trials={data.trials || []} />}
+            {tab === "papers" && (
+              <Papers papers={data.publications || []} />
+            )}
+            {tab === "sources" && <Sources data={data} />}
+          </>
         )}
       </main>
     </div>
@@ -115,23 +131,40 @@ export default function Home() {
 }
 
 function pageTitle(tab) {
+  if (tab === "patterns") return "组合 Pattern";
   if (tab === "existing") return "已有组合证据";
   if (tab === "potential") return "潜在新组合";
   if (tab === "failures") return "失败项目";
   if (tab === "trials") return "临床项目";
   if (tab === "papers") return "文献证据";
   if (tab === "sources") return "信息来源";
-  return "Signal → Problem → New Combination";
+
+  return "Signal → Pattern → Potential Combination";
 }
 
 function Radar({ data }) {
   return (
     <>
       <div className="metrics">
-        <Metric n={data.highValueSignals?.length || 0} l="高价值 Signal" />
-        <Metric n={data.failures?.length || 0} l="失败/暂停项目" />
-        <Metric n={data.existingCombinations?.length || 0} l="已有组合" />
-        <Metric n={data.potentialCombinations?.length || 0} l="潜在新组合" />
+        <Metric
+          n={data.highValueSignals?.length || 0}
+          l="高价值 Signal"
+        />
+
+        <Metric
+          n={data.combinationPatterns?.length || 0}
+          l="组合 Pattern"
+        />
+
+        <Metric
+          n={data.existingCombinations?.length || 0}
+          l="已有组合"
+        />
+
+        <Metric
+          n={data.potentialCombinations?.length || 0}
+          l="潜在新组合"
+        />
       </div>
 
       <div className="grid2 section">
@@ -139,7 +172,7 @@ function Radar({ data }) {
           <h2>High-Value Signals</h2>
 
           <div className="note">
-            这里只放真正可能改变研发或BD判断的信息。
+            这里表示“为什么值得关注”，不是潜在组合推荐。
           </div>
 
           {data.highValueSignals?.length ? (
@@ -147,8 +180,8 @@ function Radar({ data }) {
               <thead>
                 <tr>
                   <th>项目</th>
-                  <th>重点关注原因</th>
-                  <th>当前状态</th>
+                  <th>Signal</th>
+                  <th>状态</th>
                   <th>为什么值得看</th>
                   <th>下一步核对</th>
                 </tr>
@@ -159,6 +192,7 @@ function Radar({ data }) {
                   <tr key={t.nctId}>
                     <td>
                       <b>{t.title}</b>
+
                       <div className="small">
                         {t.nctId} · {t.phase}
                       </div>
@@ -195,102 +229,136 @@ function Radar({ data }) {
         </section>
 
         <section className="card dark">
-          <h2>新的主逻辑</h2>
-          <p>1. 已有项目告诉我们发生了什么</p>
-          <p>2. 失败或限制暴露真正问题</p>
-          <p>3. 把问题翻译成需要补偿的机制</p>
-          <p>4. 找候选 B</p>
-          <p>5. 排查 A+B 是否已经有人在做</p>
-          <p>6. 只有未充分开发的才进入潜在新组合</p>
+          <h2>当前推导主线</h2>
+
+          <p>1. 真实联合项目形成 Existing Evidence</p>
+          <p>2. Existing Evidence 提炼 Combination Pattern</p>
+          <p>3. Pattern 解释“为什么这样联合”</p>
+          <p>4. Pattern 迁移到其他同机制分子</p>
+          <p>5. 排除已经存在的 A+B</p>
+          <p>6. 剩下的才进入 Potential New Combination</p>
         </section>
       </div>
 
       <section className="card section">
-        <h2>从已有证据到潜在新组合</h2>
+        <h2>最新潜在新组合</h2>
 
-        <div className="logicFlow">
-          <div className="logicStep">
-            <b>已有证据</b>
-            <p>单药、已有联合、失败项目、疗效与安全性</p>
+        {(data.potentialCombinations || []).length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>候选组合</th>
+                <th>参考 Pattern</th>
+                <th>为什么这样推</th>
+                <th>当前开发核对</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {data.potentialCombinations.slice(0, 5).map((x, i) => (
+                <tr key={i}>
+                  <td>
+                    <b>
+                      {x.a} + {x.b}
+                    </b>
+
+                    <div className="small">
+                      {x.mechanismA} + {x.mechanismB}
+                    </div>
+                  </td>
+
+                  <td>{x.referencePattern}</td>
+
+                  <td>{x.rationale}</td>
+
+                  <td>{x.developmentStatus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="muted">
+            当前检索未生成足够可靠的潜在新组合。
           </div>
-
-          <div className="logicArrow">→</div>
-
-          <div className="logicStep">
-            <b>未解决问题</b>
-            <p>疗效不足、耐药、毒性、患者选择、biomarker</p>
-          </div>
-
-          <div className="logicArrow">→</div>
-
-          <div className="logicStep">
-            <b>机制缺口</b>
-            <p>到底需要补什么机制</p>
-          </div>
-
-          <div className="logicArrow">→</div>
-
-          <div className="logicStep">
-            <b>候选 B</b>
-            <p>寻找可补偿机制的靶点/分子</p>
-          </div>
-
-          <div className="logicArrow">→</div>
-
-          <div className="logicStep">
-            <b>已有组合排查</b>
-            <p>如果 A+B 已经广泛临床开发，则只作为 Evidence</p>
-          </div>
-
-          <div className="logicArrow">→</div>
-
-          <div className="logicStep highlight">
-            <b>Potential New Combination</b>
-            <p>真正还未被充分开发的组合机会</p>
-          </div>
-        </div>
+        )}
       </section>
-
-      <div className="grid2 section">
-        <section className="card">
-          <h2>新出现的问题</h2>
-
-          {(data.unmetProblems || []).length ? (
-            data.unmetProblems.map((x, i) => (
-              <div className="insight" key={i}>
-                <b>{x.source}</b>
-                <p>{x.problem}</p>
-                <div className="small">
-                  需要补偿：{x.mechanismNeed}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="muted">暂无可结构化的问题信号。</div>
-          )}
-        </section>
-
-        <section className="card">
-          <h2>最新潜在新组合</h2>
-
-          {(data.potentialCombinations || []).length ? (
-            data.potentialCombinations.slice(0, 6).map((x, i) => (
-              <div className="insight" key={i}>
-                <b>{x.a} + {x.b}</b>
-                <p>{x.rationale}</p>
-                <div className="small">
-                  当前状态：{x.developmentStatus}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="muted">
-              当前检索还没有生成新的潜在组合。
-            </div>
-          )}
-        </section>
-      </div>
     </>
+  );
+}
+
+function Patterns({ data }) {
+  const patterns = data.combinationPatterns || [];
+
+  return (
+    <section className="card">
+      <h2>Combination Pattern Library</h2>
+
+      <div className="note">
+        这里不是简单记录“谁和谁联合”，而是提炼已有真实联合背后的可迁移逻辑。
+      </div>
+
+      {patterns.length ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>核心问题</th>
+              <th>补偿机制</th>
+              <th>迁移规则</th>
+              <th>成功条件</th>
+              <th>失败边界</th>
+              <th>真实证据来源</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {patterns.map((p) => (
+              <tr key={p.id}>
+                <td>
+                  <b>{p.pattern}</b>
+
+                  <div className="small">
+                    {p.evidenceStrength} · {p.trialCount} trials
+                  </div>
+                </td>
+
+                <td>{p.problem}</td>
+
+                <td>{p.compensation}</td>
+
+                <td>{p.transferRule}</td>
+
+                <td>{p.successCondition}</td>
+
+                <td>{p.failureBoundary}</td>
+
+                <td>
+                  {(p.sourceCombinations || []).length ? (
+                    <ul className="compactList">
+                      {p.sourceCombinations.slice(0, 4).map((x, i) => (
+                        <li key={i}>
+                          {x.combo}
+                          <span className="small">
+                            {" "}
+                            · {x.trials} trials
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="muted">
+          当前检索没有形成可迁移的 Combination Pattern。
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -301,77 +369,136 @@ function ExistingCombos({ data }) {
 
       <div className="note">
         这里全部是已经存在临床开发的真实组合。
-        它们用于学习机制、成功/失败经验和竞争格局，不再作为“新组合机会”。
+        它们的作用是给 Pattern 和潜在组合推导提供证据，而不是作为“新组合”推荐。
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>组合</th>
-            <th>适应症</th>
-            <th>Phase</th>
-            <th>临床项目数</th>
-            <th>活跃</th>
-            <th>失败/暂停</th>
-            <th>用途</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {(data.existingCombinations || []).map((c) => (
-            <tr key={c.combo}>
-              <td>
-                <a href={comboHref(data, c)}>
-                  <b>{c.combo}</b> ↗
-                </a>
-              </td>
-              <td>{c.indications?.slice(0, 3).join("；") || "-"}</td>
-              <td>{c.phases?.join("；") || "-"}</td>
-              <td>{c.trials}</td>
-              <td>{c.active}</td>
-              <td>{c.risk}</td>
-              <td>作为 Evidence，不作为新组合候选</td>
+      {(data.existingCombinations || []).length ? (
+        <table>
+          <thead>
+            <tr>
+              <th>组合</th>
+              <th>适应症</th>
+              <th>Phase</th>
+              <th>项目数</th>
+              <th>活跃</th>
+              <th>失败/暂停</th>
+              <th>作用</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {(data.existingCombinations || []).map((c) => (
+              <tr key={c.combo}>
+                <td>
+                  <a href={comboHref(data, c)}>
+                    <b>{c.combo}</b> ↗
+                  </a>
+                </td>
+
+                <td>
+                  {c.indications?.slice(0, 3).join("；") || "-"}
+                </td>
+
+                <td>{c.phases?.join("；") || "-"}</td>
+
+                <td>{c.trials}</td>
+
+                <td>{c.active}</td>
+
+                <td>{c.risk}</td>
+
+                <td>作为 Pattern / Evidence 输入</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="muted">暂无已有组合数据。</div>
+      )}
     </section>
   );
 }
 
 function PotentialCombos({ data }) {
+  const combinations = data.potentialCombinations || [];
+
   return (
     <section className="card">
       <h2>Potential New Combinations</h2>
 
       <div className="note">
-        这里才是核心：只有当前没有明确临床开发，
-        或仅有极少早期探索的组合，才进入潜在新组合池。
+        这里的候选组合必须有“已有 Combination Pattern”作为推导来源，
+        并且已经经过 ClinicalTrials.gov 的现有组合排查。
       </div>
 
-      {(data.potentialCombinations || []).length ? (
+      {combinations.length ? (
         <table>
           <thead>
             <tr>
-              <th>A</th>
-              <th>A 的问题</th>
-              <th>候选 B</th>
-              <th>B 补什么</th>
-              <th>组合逻辑</th>
-              <th>该 A+B 当前开发状态</th>
+              <th>潜在组合</th>
+              <th>A的问题</th>
+              <th>B补什么</th>
+              <th>来自哪个 Pattern</th>
+              <th>参考真实组合</th>
+              <th>迁移逻辑</th>
+              <th>成功条件</th>
+              <th>失败边界</th>
+              <th>开发状态</th>
               <th>证据缺口</th>
             </tr>
           </thead>
 
           <tbody>
-            {data.potentialCombinations.map((x, i) => (
+            {combinations.map((x, i) => (
               <tr key={i}>
-                <td><b>{x.a}</b></td>
+                <td>
+                  <b>
+                    {x.a} + {x.b}
+                  </b>
+
+                  <div className="small">
+                    {x.mechanismA} + {x.mechanismB}
+                  </div>
+                </td>
+
                 <td>{x.problem}</td>
-                <td><b>{x.b}</b></td>
+
                 <td>{x.compensation}</td>
-                <td>{x.rationale}</td>
-                <td>{x.developmentStatus}</td>
+
+                <td>
+                  <b>{x.referencePattern}</b>
+
+                  <div className="small">
+                    {x.evidenceStrength}
+                  </div>
+                </td>
+
+                <td>
+                  {(x.patternSource || []).length ? (
+                    <ul className="compactList">
+                      {x.patternSource.map((s, j) => (
+                        <li key={j}>{s}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+
+                <td>{x.transferRule}</td>
+
+                <td>{x.successCondition}</td>
+
+                <td>{x.failureBoundary}</td>
+
+                <td>
+                  {x.developmentStatus}
+
+                  <div className="small">
+                    {x.verification}
+                  </div>
+                </td>
+
                 <td>{x.evidenceGap}</td>
               </tr>
             ))}
@@ -379,7 +506,7 @@ function PotentialCombos({ data }) {
         </table>
       ) : (
         <div className="muted">
-          当前版本尚未从现有证据中推导出可靠的新组合。
+          当前检索未生成满足 Pattern 迁移和现有组合排除条件的候选。
         </div>
       )}
     </section>
@@ -392,44 +519,58 @@ function Failures({ data }) {
       <h2>失败 / 暂停项目</h2>
 
       <div className="note">
-        失败项目不是终点，而是潜在新组合最重要的输入之一。
+        失败项目是识别未解决问题的重要输入，但不能仅凭“失败”就直接生成新组合。
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>项目</th>
-            <th>状态</th>
-            <th>适应症</th>
-            <th>干预</th>
-            <th>需要回答的问题</th>
-            <th>来源</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {(data.failures || []).map((t) => (
-            <tr key={t.nctId}>
-              <td>
-                <b>{t.title}</b>
-                <div className="small">{t.nctId}</div>
-              </td>
-              <td>{t.status}</td>
-              <td>{t.conditions.join("；")}</td>
-              <td>{t.interventions.join(" + ")}</td>
-              <td>
-                这是机制失败、分子失败、人群/剂量问题，
-                还是公司战略终止？
-              </td>
-              <td>
-                <a href={t.url} target="_blank" rel="noreferrer">
-                  查看 ↗
-                </a>
-              </td>
+      {(data.failures || []).length ? (
+        <table>
+          <thead>
+            <tr>
+              <th>项目</th>
+              <th>状态</th>
+              <th>适应症</th>
+              <th>干预</th>
+              <th>需要回答的问题</th>
+              <th>来源</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {(data.failures || []).map((t) => (
+              <tr key={t.nctId}>
+                <td>
+                  <b>{t.title}</b>
+
+                  <div className="small">{t.nctId}</div>
+                </td>
+
+                <td>{t.status}</td>
+
+                <td>{t.conditions.join("；")}</td>
+
+                <td>{t.interventions.join(" + ")}</td>
+
+                <td>
+                  这是机制失败、分子失败、剂量问题、人群问题、
+                  安全性问题还是战略终止？
+                </td>
+
+                <td>
+                  <a
+                    href={t.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    查看 ↗
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="muted">暂无失败/暂停项目。</div>
+      )}
     </section>
   );
 }
@@ -455,14 +596,23 @@ function Trials({ trials }) {
           {trials.map((t) => (
             <tr key={t.nctId}>
               <td>
-                <a href={t.url} target="_blank" rel="noreferrer">
+                <a
+                  href={t.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {t.nctId}
                 </a>
               </td>
+
               <td>{t.title}</td>
+
               <td>{t.conditions.join("；")}</td>
+
               <td>{t.phase}</td>
+
               <td>{t.status}</td>
+
               <td>{t.interventions.join(" + ")}</td>
             </tr>
           ))}
@@ -477,17 +627,25 @@ function Papers({ papers }) {
     <section className="card">
       <h2>PubMed</h2>
 
-      {papers.map((p) => (
-        <div className="paper" key={p.pmid}>
-          <a href={p.url} target="_blank" rel="noreferrer">
-            <b>{p.title}</b>
-          </a>
+      {papers.length ? (
+        papers.map((p) => (
+          <div className="paper" key={p.pmid}>
+            <a
+              href={p.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <b>{p.title}</b>
+            </a>
 
-          <div className="small">
-            {p.journal} · {p.pubdate} · PMID {p.pmid}
+            <div className="small">
+              {p.journal} · {p.pubdate} · PMID {p.pmid}
+            </div>
           </div>
-        </div>
-      ))}
+        ))
+      ) : (
+        <div className="muted">暂无PubMed结果。</div>
+      )}
     </section>
   );
 }
@@ -502,19 +660,33 @@ function Sources({ data }) {
           <tr>
             <td>ClinicalTrials.gov</td>
             <td>实时</td>
-            <td>试验、状态、阶段、干预、已有组合</td>
+            <td>
+              项目、状态、阶段、干预、已有组合、潜在组合排查
+            </td>
           </tr>
 
           <tr>
             <td>PubMed</td>
             <td>实时</td>
-            <td>机制、临床与组合证据线索</td>
+            <td>
+              当前用于文献线索；下一步继续接入 Pattern 机制验证
+            </td>
+          </tr>
+
+          <tr>
+            <td>Pattern Engine</td>
+            <td>当前规则版</td>
+            <td>
+              从真实已有联合中提取可迁移机制模式
+            </td>
           </tr>
 
           <tr>
             <td>下一步</td>
-            <td>待接入</td>
-            <td>公司公告、会议、监管、BD交易</td>
+            <td>待增强</td>
+            <td>
+              PubMed机制证据、公司公告、会议数据、监管、BD交易
+            </td>
           </tr>
 
           <tr>
@@ -528,9 +700,13 @@ function Sources({ data }) {
 }
 
 function comboHref(data, c) {
-  return `/combo?a=${encodeURIComponent(c.a)}&b=${encodeURIComponent(
+  return `/combo?a=${encodeURIComponent(
+    c.a
+  )}&b=${encodeURIComponent(
     c.b
-  )}&q=${encodeURIComponent(data.query)}`;
+  )}&q=${encodeURIComponent(
+    data.query
+  )}`;
 }
 
 function signalClass(type) {
@@ -539,6 +715,7 @@ function signalClass(type) {
   if (type === "后期临床") return "purple";
   if (type === "联合开发") return "success";
   if (type === "近期重大更新") return "blue";
+
   return "";
 }
 
