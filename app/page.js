@@ -8,7 +8,7 @@ export default function Home() {
   const [mode, setMode] = useState("auto");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("radar");
+  const [tab, setTab] = useState("signals");
 
   useEffect(() => {
     (async () => {
@@ -48,10 +48,8 @@ export default function Home() {
         </div>
 
         {[
-          ["radar", "情报雷达"],
-          ["patterns", "联合规律 Pattern"],
-          ["existing", "已有联合证据"],
-          ["potential", "潜在联合机会"],
+          ["signals", "实时机会"],
+          ["ongoing", "On Going｜在研联合"],
           ["failures", "终止 / 暂停项目"],
           ["trials", "临床项目"],
           ["papers", "文献证据"],
@@ -74,6 +72,7 @@ export default function Home() {
 
             <div className="muted">
               当前检索：{active}
+
               {data && (
                 <>
                   {" · "}检索方式：
@@ -113,15 +112,20 @@ export default function Home() {
           <div className="card">数据读取失败，请稍后重试。</div>
         ) : (
           <>
-            {tab === "radar" && <Radar data={data} />}
-            {tab === "patterns" && <Patterns data={data} />}
-            {tab === "existing" && <ExistingCombos data={data} />}
-            {tab === "potential" && <PotentialCombos data={data} />}
+            {tab === "signals" && <RealtimeSignals data={data} />}
+
+            {tab === "ongoing" && <OnGoing data={data} />}
+
             {tab === "failures" && <Failures data={data} />}
-            {tab === "trials" && <Trials trials={data.trials || []} />}
+
+            {tab === "trials" && (
+              <Trials trials={data.trials || []} />
+            )}
+
             {tab === "papers" && (
               <Papers papers={data.publications || []} />
             )}
+
             {tab === "sources" && <Sources data={data} />}
           </>
         )}
@@ -131,18 +135,21 @@ export default function Home() {
 }
 
 function pageTitle(tab) {
-  if (tab === "patterns") return "联合规律 Pattern";
-  if (tab === "existing") return "已有联合证据";
-  if (tab === "potential") return "潜在联合机会";
+  if (tab === "ongoing") return "On Going｜在研联合";
   if (tab === "failures") return "终止 / 暂停项目";
   if (tab === "trials") return "临床项目";
   if (tab === "papers") return "文献证据";
   if (tab === "sources") return "信息来源";
 
-  return "研发信号 → 联合规律 → 潜在联合机会";
+  return "实时研发动态 → 潜在联合机会";
 }
 
-function Radar({ data }) {
+/* =========================================================
+   实时机会
+   新的主页面
+   ========================================================= */
+
+function RealtimeSignals({ data }) {
   return (
     <>
       <section
@@ -153,7 +160,7 @@ function Radar({ data }) {
         }}
       >
         <div style={{ fontSize: 15, fontWeight: 700 }}>
-          推导逻辑：已有联合证据 → 联合规律 Pattern → 潜在联合机会
+          核心逻辑：实时 Signal → 研发问题 → 联合假设 → 证据验证 → 时间窗口
         </div>
 
         <div
@@ -163,38 +170,40 @@ function Radar({ data }) {
             lineHeight: 1.6,
           }}
         >
-          基于真实临床联合项目提炼可迁移规律，并核对现有开发情况，
-          筛选尚未发现明确临床开发的潜在联合方向。
+          从最新临床、机制和研发变化中识别新的联合机会；
+          已有联合项目和 Pattern 主要作为证据支持，而不是新机会的唯一来源。
         </div>
       </section>
 
       <div className="metrics">
         <Metric
           n={data.highValueSignals?.length || 0}
-          l="重点 Signal"
+          l="当前重点 Signal"
+        />
+
+        <Metric
+          n={data.unmetProblems?.length || 0}
+          l="待核对研发问题"
         />
 
         <Metric
           n={data.combinationPatterns?.length || 0}
-          l="联合规律 Pattern"
-        />
-
-        <Metric
-          n={data.existingCombinations?.length || 0}
-          l="已有联合项目"
+          l="可参考联合 Pattern"
         />
 
         <Metric
           n={data.potentialCombinations?.length || 0}
-          l="潜在联合机会"
+          l="On Going 迁移机会"
         />
       </div>
 
       <section className="card section">
-        <h2>重点 Signal</h2>
+        <h2>最新重点 Signal</h2>
 
         <div className="note">
-          用于提示当前值得进一步核对的研发变化，不代表系统已经形成联合建议。
+          当前数据主要来自 ClinicalTrials.gov；
+          下一阶段将接入临床结果、会议、公司公告、监管和最新机制文献，
+          用于真正的实时联合机会推导。
         </div>
 
         {data.highValueSignals?.length ? (
@@ -202,10 +211,10 @@ function Radar({ data }) {
             <thead>
               <tr>
                 <th>项目</th>
-                <th>关注原因</th>
+                <th>Signal</th>
                 <th>当前状态</th>
-                <th>为什么值得关注</th>
-                <th>建议进一步核对</th>
+                <th>发生了什么</th>
+                <th>下一步需要判断</th>
               </tr>
             </thead>
 
@@ -223,7 +232,8 @@ function Radar({ data }) {
                   <td>
                     <span
                       className={
-                        "signalBadge " + signalClass(t.highValueType)
+                        "signalBadge " +
+                        signalClass(t.highValueType)
                       }
                     >
                       {displaySignalType(t.highValueType)}
@@ -246,30 +256,293 @@ function Radar({ data }) {
             </tbody>
           </table>
         ) : (
-          <div className="muted">暂无重点 Signal。</div>
+          <div className="muted">
+            当前检索暂无重点 Signal。
+          </div>
         )}
       </section>
 
       <section className="card section">
-        <h2>近期潜在联合机会</h2>
+        <h2>Signal → 联合机会</h2>
 
         <div className="note">
-          候选方向来自已有联合规律的迁移，并经过现有临床开发情况核对。
+          这一部分将成为系统的核心：
+          从实时医学动态中形成新的 Combination Hypothesis。
         </div>
 
-        {(data.potentialCombinations || []).length ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit,minmax(180px,1fr))",
+            gap: 12,
+            marginTop: 14,
+          }}
+        >
+          <FlowCard
+            title="1. 新 Signal"
+            text="临床读出、耐药机制、biomarker、新靶点、项目终止、监管或竞争变化。"
+          />
+
+          <FlowCard
+            title="2. 研发问题"
+            text="这个变化说明现有治疗还缺什么？疗效深度、持续性、耐药、安全性还是患者选择？"
+          />
+
+          <FlowCard
+            title="3. 联合假设"
+            text="哪些新的机制可能解决这个问题？形成候选 A+B。"
+          />
+
+          <FlowCard
+            title="4. 证据验证"
+            text="用已有联合 Pattern、PubMed、临床数据和反例验证逻辑。"
+          />
+
+          <FlowCard
+            title="5. 时间窗口"
+            text="核对竞争阶段、领先项目和赛道拥挤度，判断现在做是否仍有价值。"
+          />
+        </div>
+      </section>
+
+      <section className="card section">
+        <h2>当前待升级能力</h2>
+
+        <div className="note">
+          这一页目前已经完成 Signal 展示，但尚未完成真正的
+          “实时 Signal → 新联合假设”自动推导。
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>能力</th>
+              <th>当前状态</th>
+              <th>下一步</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td>临床试验动态</td>
+              <td>已接入</td>
+              <td>继续识别状态、Phase和项目变化</td>
+            </tr>
+
+            <tr>
+              <td>PubMed文献</td>
+              <td>已接入基础检索</td>
+              <td>升级为机制、耐药和联合依据提取</td>
+            </tr>
+
+            <tr>
+              <td>实时临床读出</td>
+              <td>待接入</td>
+              <td>会议 / 公司公告 / 论文结果结构化</td>
+            </tr>
+
+            <tr>
+              <td>新联合假设</td>
+              <td>待开发</td>
+              <td>Signal → Problem → Mechanism → Combination</td>
+            </tr>
+
+            <tr>
+              <td>市场时间窗口</td>
+              <td>待开发</td>
+              <td>领先阶段、竞争数量、预计时间差</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </>
+  );
+}
+
+/* =========================================================
+   ON GOING
+   把我们之前已经做好的整个体系收进这里
+   ========================================================= */
+
+function OnGoing({ data }) {
+  const patterns = data.combinationPatterns || [];
+  const existing = data.existingCombinations || [];
+  const potential = data.potentialCombinations || [];
+
+  return (
+    <>
+      <section
+        className="card section"
+        style={{
+          padding: "14px 18px",
+          marginBottom: "14px",
+        }}
+      >
+        <div style={{ fontSize: 15, fontWeight: 700 }}>
+          On Going：已有联合证据 → 联合规律 Pattern → 迁移机会
+        </div>
+
+        <div
+          className="muted"
+          style={{
+            marginTop: 5,
+            lineHeight: 1.6,
+          }}
+        >
+          用于了解当前行业已经在做什么、为什么这样联合，
+          以及这些已有联合规律还能否迁移到其他分子。
+        </div>
+      </section>
+
+      <div className="metrics">
+        <Metric
+          n={existing.length}
+          l="已有联合项目"
+        />
+
+        <Metric
+          n={patterns.length}
+          l="联合规律 Pattern"
+        />
+
+        <Metric
+          n={potential.length}
+          l="迁移机会"
+        />
+
+        <Metric
+          n={data.failures?.length || 0}
+          l="终止 / 暂停 Signal"
+        />
+      </div>
+
+      <section className="card section">
+        <h2>已有联合证据</h2>
+
+        <div className="note">
+          已经进入临床开发的真实联合项目，是联合规律分析的基础。
+        </div>
+
+        {existing.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>联合方案</th>
+                <th>适应症</th>
+                <th>Phase</th>
+                <th>相关试验数</th>
+                <th>活跃项目</th>
+                <th>终止 / 暂停</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {existing.slice(0, 12).map((c) => (
+                <tr key={c.combo}>
+                  <td>
+                    <a href={comboHref(data, c)}>
+                      <b>{c.combo}</b> ↗
+                    </a>
+                  </td>
+
+                  <td>
+                    {c.indications?.slice(0, 3).join("；") ||
+                      "-"}
+                  </td>
+
+                  <td>{c.phases?.join("；") || "-"}</td>
+
+                  <td>{c.trials}</td>
+
+                  <td>{c.active}</td>
+
+                  <td>{c.risk}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="muted">
+            当前检索暂无已有联合项目。
+          </div>
+        )}
+      </section>
+
+      <section className="card section">
+        <h2>联合规律 Pattern</h2>
+
+        <div className="note">
+          从已有联合中提炼机制互补逻辑、可能成立的条件和主要限制因素。
+        </div>
+
+        {patterns.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>联合规律</th>
+                <th>当前未解决问题</th>
+                <th>潜在互补机制</th>
+                <th>可迁移依据</th>
+                <th>可能成立的条件</th>
+                <th>主要限制因素</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {patterns.slice(0, 10).map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <b>{p.pattern}</b>
+
+                    <div className="small">
+                      {p.evidenceStrength} · {p.trialCount} 项试验
+                    </div>
+                  </td>
+
+                  <td>{p.problem}</td>
+
+                  <td>{p.compensation}</td>
+
+                  <td>{p.transferRule}</td>
+
+                  <td>{p.successCondition}</td>
+
+                  <td>{p.failureBoundary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="muted">
+            当前检索尚未形成可迁移联合规律。
+          </div>
+        )}
+      </section>
+
+      <section className="card section">
+        <h2>基于 On Going Pattern 的迁移机会</h2>
+
+        <div className="note">
+          这一部分来自已有临床联合规律的迁移，
+          科学依据通常更成熟，但需要特别关注竞争进度和市场时间窗口。
+        </div>
+
+        {potential.length ? (
           <table>
             <thead>
               <tr>
                 <th>候选联合</th>
-                <th>参考联合规律</th>
+                <th>参考 Pattern</th>
                 <th>推导依据</th>
+                <th>可能成立的条件</th>
+                <th>主要限制因素</th>
                 <th>现有开发核对</th>
               </tr>
             </thead>
 
             <tbody>
-              {data.potentialCombinations.slice(0, 5).map((x, i) => (
+              {potential.map((x, i) => (
                 <tr key={i}>
                   <td>
                     <b>
@@ -285,14 +558,24 @@ function Radar({ data }) {
 
                   <td>{x.rationale}</td>
 
-                  <td>{x.developmentStatus}</td>
+                  <td>{x.successCondition}</td>
+
+                  <td>{x.failureBoundary}</td>
+
+                  <td>
+                    {x.developmentStatus}
+
+                    <div className="small">
+                      {x.verification}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : (
           <div className="muted">
-            当前检索暂未生成满足条件的潜在联合方向。
+            当前检索暂未生成满足条件的迁移机会。
           </div>
         )}
       </section>
@@ -300,233 +583,9 @@ function Radar({ data }) {
   );
 }
 
-function Patterns({ data }) {
-  const patterns = data.combinationPatterns || [];
-
-  return (
-    <section className="card">
-      <h2>联合规律 Pattern 库</h2>
-
-      <div className="note">
-        从真实临床联合项目中提炼机制互补逻辑、可能成立的条件和主要限制因素，
-        用于后续潜在联合机会推导。
-      </div>
-
-      {patterns.length ? (
-        <table>
-          <thead>
-            <tr>
-              <th>联合规律</th>
-              <th>当前未解决问题</th>
-              <th>潜在互补机制</th>
-              <th>可迁移依据</th>
-              <th>可能成立的条件</th>
-              <th>主要限制因素</th>
-              <th>参考临床联合证据</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {patterns.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <b>{p.pattern}</b>
-
-                  <div className="small">
-                    {p.evidenceStrength} · {p.trialCount} 项试验
-                  </div>
-                </td>
-
-                <td>{p.problem}</td>
-
-                <td>{p.compensation}</td>
-
-                <td>{p.transferRule}</td>
-
-                <td>{p.successCondition}</td>
-
-                <td>{p.failureBoundary}</td>
-
-                <td>
-                  {(p.sourceCombinations || []).length ? (
-                    <ul className="compactList">
-                      {p.sourceCombinations.slice(0, 4).map((x, i) => (
-                        <li key={i}>
-                          {x.combo}
-                          <span className="small">
-                            {" "}
-                            · {x.trials} 项试验
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className="muted">
-          当前检索尚未形成可迁移的联合规律。
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ExistingCombos({ data }) {
-  return (
-    <section className="card">
-      <h2>已有联合证据</h2>
-
-      <div className="note">
-        这里展示已经进入临床开发的真实联合项目。
-        它们主要用于提炼联合规律、理解成功与失败边界，不作为新的联合机会推荐。
-      </div>
-
-      {(data.existingCombinations || []).length ? (
-        <table>
-          <thead>
-            <tr>
-              <th>联合方案</th>
-              <th>适应症</th>
-              <th>Phase</th>
-              <th>相关试验数</th>
-              <th>活跃项目</th>
-              <th>终止 / 暂停</th>
-              <th>主要用途</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {(data.existingCombinations || []).map((c) => (
-              <tr key={c.combo}>
-                <td>
-                  <a href={comboHref(data, c)}>
-                    <b>{c.combo}</b> ↗
-                  </a>
-                </td>
-
-                <td>
-                  {c.indications?.slice(0, 3).join("；") || "-"}
-                </td>
-
-                <td>{c.phases?.join("；") || "-"}</td>
-
-                <td>{c.trials}</td>
-
-                <td>{c.active}</td>
-
-                <td>{c.risk}</td>
-
-                <td>作为联合规律和潜在机会推导的证据输入</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className="muted">暂无已有联合项目。</div>
-      )}
-    </section>
-  );
-}
-
-function PotentialCombos({ data }) {
-  const combinations = data.potentialCombinations || [];
-
-  return (
-    <section className="card">
-      <h2>潜在联合机会</h2>
-
-      <div className="note">
-        候选方向需有已有联合规律作为推导依据，并经过现有临床开发情况核对。
-        当前结果用于机会筛选，不代表联合疗效已经得到验证。
-      </div>
-
-      {combinations.length ? (
-        <table>
-          <thead>
-            <tr>
-              <th>潜在联合方向</th>
-              <th>当前未解决问题</th>
-              <th>潜在互补机制</th>
-              <th>参考联合 Pattern</th>
-              <th>参考临床联合证据</th>
-              <th>可迁移依据</th>
-              <th>可能成立的条件</th>
-              <th>主要限制因素</th>
-              <th>现有开发核对</th>
-              <th>尚缺证据</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {combinations.map((x, i) => (
-              <tr key={i}>
-                <td>
-                  <b>
-                    {x.a} + {x.b}
-                  </b>
-
-                  <div className="small">
-                    {x.mechanismA} + {x.mechanismB}
-                  </div>
-                </td>
-
-                <td>{x.problem}</td>
-
-                <td>{x.compensation}</td>
-
-                <td>
-                  <b>{x.referencePattern}</b>
-
-                  <div className="small">
-                    {x.evidenceStrength}
-                  </div>
-                </td>
-
-                <td>
-                  {(x.patternSource || []).length ? (
-                    <ul className="compactList">
-                      {x.patternSource.map((s, j) => (
-                        <li key={j}>{s}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-
-                <td>{x.transferRule}</td>
-
-                <td>{x.successCondition}</td>
-
-                <td>{x.failureBoundary}</td>
-
-                <td>
-                  {x.developmentStatus}
-
-                  <div className="small">
-                    {x.verification}
-                  </div>
-                </td>
-
-                <td>{x.evidenceGap}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className="muted">
-          当前检索暂未生成满足联合规律迁移和现有开发排除条件的候选方向。
-        </div>
-      )}
-    </section>
-  );
-}
+/* =========================================================
+   其他已有页面
+   ========================================================= */
 
 function Failures({ data }) {
   return (
@@ -534,8 +593,9 @@ function Failures({ data }) {
       <h2>终止 / 暂停项目</h2>
 
       <div className="note">
-        项目终止或暂停并不等同于机制失败。
-        需要进一步区分疗效、安全性、剂量、患者选择、研究设计和公司战略等原因。
+        项目终止或暂停不等于机制失败；
+        需进一步区分疗效、安全性、剂量、患者选择、
+        研究设计和公司战略等因素。
       </div>
 
       {(data.failures || []).length ? (
@@ -556,7 +616,6 @@ function Failures({ data }) {
               <tr key={t.nctId}>
                 <td>
                   <b>{t.title}</b>
-
                   <div className="small">{t.nctId}</div>
                 </td>
 
@@ -567,8 +626,8 @@ function Failures({ data }) {
                 <td>{t.interventions.join(" + ")}</td>
 
                 <td>
-                  需判断是否属于机制问题、分子问题、疗效不足、
-                  安全性、剂量、人群选择、研究设计或公司战略因素。
+                  需判断是否属于机制、分子、疗效、安全性、
+                  剂量、人群、设计或战略问题。
                 </td>
 
                 <td>
@@ -585,7 +644,9 @@ function Failures({ data }) {
           </tbody>
         </table>
       ) : (
-        <div className="muted">暂无终止 / 暂停项目。</div>
+        <div className="muted">
+          暂无终止 / 暂停项目。
+        </div>
       )}
     </section>
   );
@@ -626,13 +687,9 @@ function Trials({ trials }) {
               </td>
 
               <td>{t.title}</td>
-
               <td>{t.conditions.join("；")}</td>
-
               <td>{t.phase}</td>
-
               <td>{displayStatus(t.status)}</td>
-
               <td>{t.interventions.join(" + ")}</td>
             </tr>
           ))}
@@ -646,10 +703,6 @@ function Papers({ papers }) {
   return (
     <section className="card">
       <h2>PubMed 文献证据</h2>
-
-      <div className="note">
-        当前用于补充机制和临床证据线索，后续继续接入联合规律验证。
-      </div>
 
       {papers.length ? (
         papers.map((p) => (
@@ -668,7 +721,9 @@ function Papers({ papers }) {
           </div>
         ))
       ) : (
-        <div className="muted">暂无 PubMed 结果。</div>
+        <div className="muted">
+          暂无 PubMed 结果。
+        </div>
       )}
     </section>
   );
@@ -683,7 +738,7 @@ function Sources({ data }) {
         <thead>
           <tr>
             <th>来源</th>
-            <th>更新方式</th>
+            <th>当前状态</th>
             <th>主要用途</th>
           </tr>
         </thead>
@@ -691,33 +746,49 @@ function Sources({ data }) {
         <tbody>
           <tr>
             <td>ClinicalTrials.gov</td>
-            <td>实时</td>
+            <td>已接入</td>
             <td>
-              项目状态、Phase、适应症、干预方案、已有联合项目及现有开发核对
+              项目、Phase、状态、干预、已有联合和竞争核对
             </td>
           </tr>
 
           <tr>
             <td>PubMed</td>
-            <td>实时</td>
+            <td>已接入基础检索</td>
             <td>
-              机制证据、临床结果及联合开发相关文献线索
+              文献、机制和临床证据线索
             </td>
           </tr>
 
           <tr>
-            <td>Pattern Engine</td>
-            <td>规则推导</td>
+            <td>公司公告 / Pipeline</td>
+            <td>待接入</td>
             <td>
-              从真实已有联合项目中提炼可迁移的联合规律
+              最新数据读出、项目推进、终止和战略变化
             </td>
           </tr>
 
           <tr>
-            <td>下一步拟接入</td>
-            <td>待增强</td>
+            <td>学术会议</td>
+            <td>待接入</td>
             <td>
-              公司公告、学术会议、监管信息、BD交易及更完整的机制证据
+              最新 ORR / PFS / OS / DoR / 安全性结果
+            </td>
+          </tr>
+
+          <tr>
+            <td>监管动态</td>
+            <td>待接入</td>
+            <td>
+              FDA / EMA / NMPA 决策和研发路径变化
+            </td>
+          </tr>
+
+          <tr>
+            <td>BD / 交易动态</td>
+            <td>待接入</td>
+            <td>
+              产业验证、资产热度和竞争趋势
             </td>
           </tr>
 
@@ -728,6 +799,35 @@ function Sources({ data }) {
         </tbody>
       </table>
     </section>
+  );
+}
+
+/* =========================================================
+   Helpers
+   ========================================================= */
+
+function FlowCard({ title, text }) {
+  return (
+    <div
+      style={{
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: 14,
+        background: "var(--panel)",
+      }}
+    >
+      <b>{title}</b>
+
+      <div
+        className="muted"
+        style={{
+          marginTop: 7,
+          lineHeight: 1.6,
+        }}
+      >
+        {text}
+      </div>
+    </div>
   );
 }
 
