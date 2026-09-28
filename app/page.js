@@ -49,10 +49,10 @@ export default function Home() {
 
         {[
           ["radar", "情报雷达"],
-          ["patterns", "组合 Pattern"],
-          ["existing", "已有组合证据"],
-          ["potential", "潜在新组合"],
-          ["failures", "失败项目"],
+          ["patterns", "联合规律 Pattern"],
+          ["existing", "已有联合证据"],
+          ["potential", "潜在联合机会"],
+          ["failures", "终止 / 暂停项目"],
           ["trials", "临床项目"],
           ["papers", "文献证据"],
           ["sources", "信息来源"],
@@ -76,7 +76,7 @@ export default function Home() {
               当前检索：{active}
               {data && (
                 <>
-                  {" · "}系统采用：
+                  {" · "}检索方式：
                   <b>
                     {data.selectedMode === "condition"
                       ? "适应症精确检索"
@@ -131,126 +131,140 @@ export default function Home() {
 }
 
 function pageTitle(tab) {
-  if (tab === "patterns") return "组合 Pattern";
-  if (tab === "existing") return "已有组合证据";
-  if (tab === "potential") return "潜在新组合";
-  if (tab === "failures") return "失败项目";
+  if (tab === "patterns") return "联合规律 Pattern";
+  if (tab === "existing") return "已有联合证据";
+  if (tab === "potential") return "潜在联合机会";
+  if (tab === "failures") return "终止 / 暂停项目";
   if (tab === "trials") return "临床项目";
   if (tab === "papers") return "文献证据";
   if (tab === "sources") return "信息来源";
 
-  return "Signal → Pattern → Potential Combination";
+  return "研发信号 → 联合规律 → 潜在联合机会";
 }
 
 function Radar({ data }) {
   return (
     <>
+      <section
+        className="card section"
+        style={{
+          padding: "14px 18px",
+          marginBottom: "14px",
+        }}
+      >
+        <div style={{ fontSize: 15, fontWeight: 700 }}>
+          推导逻辑：已有联合证据 → 联合规律 Pattern → 潜在联合机会
+        </div>
+
+        <div
+          className="muted"
+          style={{
+            marginTop: 5,
+            lineHeight: 1.6,
+          }}
+        >
+          基于真实临床联合项目提炼可迁移规律，并核对现有开发情况，
+          筛选尚未发现明确临床开发的潜在联合方向。
+        </div>
+      </section>
+
       <div className="metrics">
         <Metric
           n={data.highValueSignals?.length || 0}
-          l="高价值 Signal"
+          l="重点 Signal"
         />
 
         <Metric
           n={data.combinationPatterns?.length || 0}
-          l="组合 Pattern"
+          l="联合规律 Pattern"
         />
 
         <Metric
           n={data.existingCombinations?.length || 0}
-          l="已有组合"
+          l="已有联合项目"
         />
 
         <Metric
           n={data.potentialCombinations?.length || 0}
-          l="潜在新组合"
+          l="潜在联合机会"
         />
       </div>
 
-      <div className="grid2 section">
-        <section className="card">
-          <h2>High-Value Signals</h2>
+      <section className="card section">
+        <h2>重点 Signal</h2>
 
-          <div className="note">
-            这里表示“为什么值得关注”，不是潜在组合推荐。
-          </div>
+        <div className="note">
+          用于提示当前值得进一步核对的研发变化，不代表系统已经形成联合建议。
+        </div>
 
-          {data.highValueSignals?.length ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>项目</th>
-                  <th>Signal</th>
-                  <th>状态</th>
-                  <th>为什么值得看</th>
-                  <th>下一步核对</th>
+        {data.highValueSignals?.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>项目</th>
+                <th>关注原因</th>
+                <th>当前状态</th>
+                <th>为什么值得关注</th>
+                <th>建议进一步核对</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {data.highValueSignals.map((t) => (
+                <tr key={t.nctId}>
+                  <td>
+                    <b>{t.title}</b>
+
+                    <div className="small">
+                      {t.nctId} · {t.phase}
+                    </div>
+                  </td>
+
+                  <td>
+                    <span
+                      className={
+                        "signalBadge " + signalClass(t.highValueType)
+                      }
+                    >
+                      {displaySignalType(t.highValueType)}
+                    </span>
+                  </td>
+
+                  <td>{displayStatus(t.status)}</td>
+
+                  <td>
+                    <ul className="compactList">
+                      {(t.highValueReasons || []).map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </td>
+
+                  <td>{t.nextCheck}</td>
                 </tr>
-              </thead>
-
-              <tbody>
-                {data.highValueSignals.map((t) => (
-                  <tr key={t.nctId}>
-                    <td>
-                      <b>{t.title}</b>
-
-                      <div className="small">
-                        {t.nctId} · {t.phase}
-                      </div>
-                    </td>
-
-                    <td>
-                      <span
-                        className={
-                          "signalBadge " + signalClass(t.highValueType)
-                        }
-                      >
-                        {t.highValueType}
-                      </span>
-                    </td>
-
-                    <td>{t.status}</td>
-
-                    <td>
-                      <ul className="compactList">
-                        {(t.highValueReasons || []).map((r, i) => (
-                          <li key={i}>{r}</li>
-                        ))}
-                      </ul>
-                    </td>
-
-                    <td>{t.nextCheck}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="muted">暂无高价值 Signal。</div>
-          )}
-        </section>
-
-        <section className="card dark">
-          <h2>当前推导主线</h2>
-
-          <p>1. 真实联合项目形成 Existing Evidence</p>
-          <p>2. Existing Evidence 提炼 Combination Pattern</p>
-          <p>3. Pattern 解释“为什么这样联合”</p>
-          <p>4. Pattern 迁移到其他同机制分子</p>
-          <p>5. 排除已经存在的 A+B</p>
-          <p>6. 剩下的才进入 Potential New Combination</p>
-        </section>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="muted">暂无重点 Signal。</div>
+        )}
+      </section>
 
       <section className="card section">
-        <h2>最新潜在新组合</h2>
+        <h2>近期潜在联合机会</h2>
+
+        <div className="note">
+          候选方向来自已有联合规律的迁移，并经过现有临床开发情况核对。
+        </div>
 
         {(data.potentialCombinations || []).length ? (
           <table>
             <thead>
               <tr>
-                <th>候选组合</th>
-                <th>参考 Pattern</th>
-                <th>为什么这样推</th>
-                <th>当前开发核对</th>
+                <th>候选联合</th>
+                <th>参考联合规律</th>
+                <th>推导依据</th>
+                <th>现有开发核对</th>
               </tr>
             </thead>
 
@@ -278,7 +292,7 @@ function Radar({ data }) {
           </table>
         ) : (
           <div className="muted">
-            当前检索未生成足够可靠的潜在新组合。
+            当前检索暂未生成满足条件的潜在联合方向。
           </div>
         )}
       </section>
@@ -291,23 +305,24 @@ function Patterns({ data }) {
 
   return (
     <section className="card">
-      <h2>Combination Pattern Library</h2>
+      <h2>联合规律 Pattern 库</h2>
 
       <div className="note">
-        这里不是简单记录“谁和谁联合”，而是提炼已有真实联合背后的可迁移逻辑。
+        从真实临床联合项目中提炼机制互补逻辑、可能成立的条件和主要限制因素，
+        用于后续潜在联合机会推导。
       </div>
 
       {patterns.length ? (
         <table>
           <thead>
             <tr>
-              <th>Pattern</th>
-              <th>核心问题</th>
-              <th>补偿机制</th>
-              <th>迁移规则</th>
-              <th>成功条件</th>
-              <th>失败边界</th>
-              <th>真实证据来源</th>
+              <th>联合规律</th>
+              <th>当前未解决问题</th>
+              <th>潜在互补机制</th>
+              <th>可迁移依据</th>
+              <th>可能成立的条件</th>
+              <th>主要限制因素</th>
+              <th>参考临床联合证据</th>
             </tr>
           </thead>
 
@@ -318,7 +333,7 @@ function Patterns({ data }) {
                   <b>{p.pattern}</b>
 
                   <div className="small">
-                    {p.evidenceStrength} · {p.trialCount} trials
+                    {p.evidenceStrength} · {p.trialCount} 项试验
                   </div>
                 </td>
 
@@ -340,7 +355,7 @@ function Patterns({ data }) {
                           {x.combo}
                           <span className="small">
                             {" "}
-                            · {x.trials} trials
+                            · {x.trials} 项试验
                           </span>
                         </li>
                       ))}
@@ -355,7 +370,7 @@ function Patterns({ data }) {
         </table>
       ) : (
         <div className="muted">
-          当前检索没有形成可迁移的 Combination Pattern。
+          当前检索尚未形成可迁移的联合规律。
         </div>
       )}
     </section>
@@ -365,24 +380,24 @@ function Patterns({ data }) {
 function ExistingCombos({ data }) {
   return (
     <section className="card">
-      <h2>已有组合证据库</h2>
+      <h2>已有联合证据</h2>
 
       <div className="note">
-        这里全部是已经存在临床开发的真实组合。
-        它们的作用是给 Pattern 和潜在组合推导提供证据，而不是作为“新组合”推荐。
+        这里展示已经进入临床开发的真实联合项目。
+        它们主要用于提炼联合规律、理解成功与失败边界，不作为新的联合机会推荐。
       </div>
 
       {(data.existingCombinations || []).length ? (
         <table>
           <thead>
             <tr>
-              <th>组合</th>
+              <th>联合方案</th>
               <th>适应症</th>
               <th>Phase</th>
-              <th>项目数</th>
-              <th>活跃</th>
-              <th>失败/暂停</th>
-              <th>作用</th>
+              <th>相关试验数</th>
+              <th>活跃项目</th>
+              <th>终止 / 暂停</th>
+              <th>主要用途</th>
             </tr>
           </thead>
 
@@ -407,13 +422,13 @@ function ExistingCombos({ data }) {
 
                 <td>{c.risk}</td>
 
-                <td>作为 Pattern / Evidence 输入</td>
+                <td>作为联合规律和潜在机会推导的证据输入</td>
               </tr>
             ))}
           </tbody>
         </table>
       ) : (
-        <div className="muted">暂无已有组合数据。</div>
+        <div className="muted">暂无已有联合项目。</div>
       )}
     </section>
   );
@@ -424,27 +439,27 @@ function PotentialCombos({ data }) {
 
   return (
     <section className="card">
-      <h2>Potential New Combinations</h2>
+      <h2>潜在联合机会</h2>
 
       <div className="note">
-        这里的候选组合必须有“已有 Combination Pattern”作为推导来源，
-        并且已经经过 ClinicalTrials.gov 的现有组合排查。
+        候选方向需有已有联合规律作为推导依据，并经过现有临床开发情况核对。
+        当前结果用于机会筛选，不代表联合疗效已经得到验证。
       </div>
 
       {combinations.length ? (
         <table>
           <thead>
             <tr>
-              <th>潜在组合</th>
-              <th>A的问题</th>
-              <th>B补什么</th>
-              <th>来自哪个 Pattern</th>
-              <th>参考真实组合</th>
-              <th>迁移逻辑</th>
-              <th>成功条件</th>
-              <th>失败边界</th>
-              <th>开发状态</th>
-              <th>证据缺口</th>
+              <th>潜在联合方向</th>
+              <th>当前未解决问题</th>
+              <th>潜在互补机制</th>
+              <th>参考联合 Pattern</th>
+              <th>参考临床联合证据</th>
+              <th>可迁移依据</th>
+              <th>可能成立的条件</th>
+              <th>主要限制因素</th>
+              <th>现有开发核对</th>
+              <th>尚缺证据</th>
             </tr>
           </thead>
 
@@ -506,7 +521,7 @@ function PotentialCombos({ data }) {
         </table>
       ) : (
         <div className="muted">
-          当前检索未生成满足 Pattern 迁移和现有组合排除条件的候选。
+          当前检索暂未生成满足联合规律迁移和现有开发排除条件的候选方向。
         </div>
       )}
     </section>
@@ -516,10 +531,11 @@ function PotentialCombos({ data }) {
 function Failures({ data }) {
   return (
     <section className="card">
-      <h2>失败 / 暂停项目</h2>
+      <h2>终止 / 暂停项目</h2>
 
       <div className="note">
-        失败项目是识别未解决问题的重要输入，但不能仅凭“失败”就直接生成新组合。
+        项目终止或暂停并不等同于机制失败。
+        需要进一步区分疗效、安全性、剂量、患者选择、研究设计和公司战略等原因。
       </div>
 
       {(data.failures || []).length ? (
@@ -527,10 +543,10 @@ function Failures({ data }) {
           <thead>
             <tr>
               <th>项目</th>
-              <th>状态</th>
+              <th>当前状态</th>
               <th>适应症</th>
-              <th>干预</th>
-              <th>需要回答的问题</th>
+              <th>干预方案</th>
+              <th>重点判断问题</th>
               <th>来源</th>
             </tr>
           </thead>
@@ -544,15 +560,15 @@ function Failures({ data }) {
                   <div className="small">{t.nctId}</div>
                 </td>
 
-                <td>{t.status}</td>
+                <td>{displayStatus(t.status)}</td>
 
                 <td>{t.conditions.join("；")}</td>
 
                 <td>{t.interventions.join(" + ")}</td>
 
                 <td>
-                  这是机制失败、分子失败、剂量问题、人群问题、
-                  安全性问题还是战略终止？
+                  需判断是否属于机制问题、分子问题、疗效不足、
+                  安全性、剂量、人群选择、研究设计或公司战略因素。
                 </td>
 
                 <td>
@@ -569,7 +585,7 @@ function Failures({ data }) {
           </tbody>
         </table>
       ) : (
-        <div className="muted">暂无失败/暂停项目。</div>
+        <div className="muted">暂无终止 / 暂停项目。</div>
       )}
     </section>
   );
@@ -578,7 +594,11 @@ function Failures({ data }) {
 function Trials({ trials }) {
   return (
     <section className="card">
-      <h2>ClinicalTrials.gov</h2>
+      <h2>临床项目</h2>
+
+      <div className="note">
+        数据来源：ClinicalTrials.gov
+      </div>
 
       <table>
         <thead>
@@ -587,8 +607,8 @@ function Trials({ trials }) {
             <th>项目</th>
             <th>适应症</th>
             <th>Phase</th>
-            <th>Status</th>
-            <th>干预</th>
+            <th>当前状态</th>
+            <th>干预方案</th>
           </tr>
         </thead>
 
@@ -611,7 +631,7 @@ function Trials({ trials }) {
 
               <td>{t.phase}</td>
 
-              <td>{t.status}</td>
+              <td>{displayStatus(t.status)}</td>
 
               <td>{t.interventions.join(" + ")}</td>
             </tr>
@@ -625,7 +645,11 @@ function Trials({ trials }) {
 function Papers({ papers }) {
   return (
     <section className="card">
-      <h2>PubMed</h2>
+      <h2>PubMed 文献证据</h2>
+
+      <div className="note">
+        当前用于补充机制和临床证据线索，后续继续接入联合规律验证。
+      </div>
 
       {papers.length ? (
         papers.map((p) => (
@@ -644,7 +668,7 @@ function Papers({ papers }) {
           </div>
         ))
       ) : (
-        <div className="muted">暂无PubMed结果。</div>
+        <div className="muted">暂无 PubMed 结果。</div>
       )}
     </section>
   );
@@ -656,12 +680,20 @@ function Sources({ data }) {
       <h2>信息来源</h2>
 
       <table>
+        <thead>
+          <tr>
+            <th>来源</th>
+            <th>更新方式</th>
+            <th>主要用途</th>
+          </tr>
+        </thead>
+
         <tbody>
           <tr>
             <td>ClinicalTrials.gov</td>
             <td>实时</td>
             <td>
-              项目、状态、阶段、干预、已有组合、潜在组合排查
+              项目状态、Phase、适应症、干预方案、已有联合项目及现有开发核对
             </td>
           </tr>
 
@@ -669,28 +701,28 @@ function Sources({ data }) {
             <td>PubMed</td>
             <td>实时</td>
             <td>
-              当前用于文献线索；下一步继续接入 Pattern 机制验证
+              机制证据、临床结果及联合开发相关文献线索
             </td>
           </tr>
 
           <tr>
             <td>Pattern Engine</td>
-            <td>当前规则版</td>
+            <td>规则推导</td>
             <td>
-              从真实已有联合中提取可迁移机制模式
+              从真实已有联合项目中提炼可迁移的联合规律
             </td>
           </tr>
 
           <tr>
-            <td>下一步</td>
+            <td>下一步拟接入</td>
             <td>待增强</td>
             <td>
-              PubMed机制证据、公司公告、会议数据、监管、BD交易
+              公司公告、学术会议、监管信息、BD交易及更完整的机制证据
             </td>
           </tr>
 
           <tr>
-            <td>更新时间</td>
+            <td>本次更新时间</td>
             <td colSpan="2">{data.generatedAt}</td>
           </tr>
         </tbody>
@@ -707,6 +739,32 @@ function comboHref(data, c) {
   )}&q=${encodeURIComponent(
     data.query
   )}`;
+}
+
+function displaySignalType(type) {
+  if (type === "失败/暂停") return "终止 / 暂停";
+  if (type === "关键读出") return "关键读出";
+  if (type === "后期临床") return "后期临床";
+  if (type === "联合开发") return "已有联合开发";
+  if (type === "近期重大更新") return "近期更新";
+
+  return type || "相关项目";
+}
+
+function displayStatus(status) {
+  const map = {
+    RECRUITING: "招募中",
+    NOT_YET_RECRUITING: "尚未开始招募",
+    ACTIVE_NOT_RECRUITING: "进行中，已停止招募",
+    COMPLETED: "已完成",
+    TERMINATED: "已终止",
+    SUSPENDED: "已暂停",
+    WITHDRAWN: "已撤回",
+    ENROLLING_BY_INVITATION: "邀请入组",
+    UNKNOWN: "状态未知",
+  };
+
+  return map[status] || status;
 }
 
 function signalClass(type) {
