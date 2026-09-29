@@ -653,6 +653,151 @@ function assessSafety(profileA, profileB, mechanismAId, mechanismBId) {
   };
 }
 
+function classifyCombinationStrategy({
+  mechanismAId,
+  mechanismBId,
+  designType = null,
+}) {
+  if (designType === "BISPECIFIC_ADC") return "双靶点设计";
+  if (designType === "DUAL_PAYLOAD_ADC") return "双Payload设计";
+  if (designType === "MODALITY_UPGRADE") return "Modality升级";
+
+  const pair = mechanismPairKey(mechanismAId, mechanismBId);
+
+  if (
+    pair.includes("ADC") &&
+    (
+      pair.includes("PARP") ||
+      pair.includes("EGFR") ||
+      pair.includes("VEGF") ||
+      pair.includes("KRAS") ||
+      pair.includes("BTK")
+    )
+  ) {
+    return "靶向联合";
+  }
+
+  return "药物间联合";
+}
+
+function evidenceTierForCombination({
+  samePattern,
+  mechanismAId,
+  mechanismBId,
+  novelDesign = false,
+}) {
+  if (novelDesign) {
+    return {
+      code: "L4",
+      label: "机制推演 / 分子设计假设",
+    };
+  }
+
+  const leadingPhaseRank =
+    samePattern?.leadingPhaseRank || 0;
+
+  if (leadingPhaseRank >= 3) {
+    return {
+      code: "L1",
+      label: "III期 / 注册性临床验证",
+    };
+  }
+
+  if ((samePattern?.trialCount || 0) > 0) {
+    return {
+      code: "L2",
+      label: "已有临床联合探索",
+    };
+  }
+
+  const pair =
+    mechanismPairKey(
+      mechanismAId,
+      mechanismBId
+    );
+
+  if (COMPLEMENTARITY_SCORE[pair] != null) {
+    return {
+      code: "L3",
+      label: "同机制 / 规则支持，暂无直接临床联合",
+    };
+  }
+
+  return {
+    code: "L4",
+    label: "主要为机制推演",
+  };
+}
+
+function buildPredictionBasis({
+  mechanismAId,
+  mechanismBId,
+  profileA,
+  profileB,
+  scoreBreakdown,
+}) {
+  const items = [];
+
+  const targetA = profileA?.target || "";
+  const targetB = profileB?.target || "";
+
+  if (
+    targetA &&
+    targetB &&
+    !targetA.includes("待核对") &&
+    !targetB.includes("待核对") &&
+    norm(targetA) !== norm(targetB)
+  ) {
+    items.push(
+      "靶点 / 作用层面互补：" +
+      targetA +
+      " ↔ " +
+      targetB
+    );
+  }
+
+  if (
+    (scoreBreakdown?.mechanismComplementarity || 0) >= 22
+  ) {
+    items.push("机制互补：高");
+  } else if (
+    (scoreBreakdown?.mechanismComplementarity || 0) >= 17
+  ) {
+    items.push("机制互补：中高");
+  }
+
+  if (
+    (scoreBreakdown?.payloadRationale || 0) >= 13
+  ) {
+    items.push("Payload / 杀伤协同：高");
+  }
+
+  if (
+    (scoreBreakdown?.unmetNeedResolution || 0) >= 13
+  ) {
+    items.push("耐药 / 未满足需求互补：高");
+  }
+
+  const pair =
+    mechanismPairKey(
+      mechanismAId,
+      mechanismBId
+    );
+
+  if (
+    pair.includes("ADC") &&
+    (
+      pair.includes("PD1") ||
+      pair.includes("PDL1") ||
+      pair.includes("VEGF")
+    )
+  ) {
+    items.push("TME / 免疫协同：值得优先验证");
+  }
+
+  return items;
+}
+
 function scoreCombination({
   mechanismAId,
   mechanismBId,
@@ -744,6 +889,19 @@ function scoreCombination({
       ? "存在早期同类临床线索"
       : "主要为机制推导";
 
+  const evidenceTier =
+    evidenceTierForCombination({
+      samePattern,
+      mechanismAId,
+      mechanismBId,
+    });
+
+  const combinationStrategy =
+    classifyCombinationStrategy({
+      mechanismAId,
+      mechanismBId,
+    });
+
   const precedentLevel =
     patternTrials > 0
       ? "已有同类前车之鉴"
@@ -768,6 +926,15 @@ function scoreCombination({
     moleculeMaturity,
   };
 
+  const predictionBasis =
+    buildPredictionBasis({
+      mechanismAId,
+      mechanismBId,
+      profileA,
+      profileB,
+      scoreBreakdown,
+    });
+
   return {
     opportunityScore: Object.values(scoreBreakdown).reduce(
       (sum, value) => sum + value,
@@ -777,6 +944,9 @@ function scoreCombination({
     risk: safety.risk,
     riskRationale: safety.rationale,
     evidenceLevel,
+    evidenceTier,
+    combinationStrategy,
+    predictionBasis,
     precedentLevel,
     timeWindow,
     timeWindowLabel,
@@ -2455,6 +2625,15 @@ async function buildPotentialCombinations(
           evidenceLevel:
             assessment.evidenceLevel,
 
+          evidenceTier:
+            assessment.evidenceTier,
+
+          combinationStrategy:
+            assessment.combinationStrategy,
+
+          predictionBasis:
+            assessment.predictionBasis,
+
           precedentLevel:
             assessment.precedentLevel,
 
@@ -3324,6 +3503,15 @@ async function buildSignalHypotheses({
           evidenceLevel:
             assessment.evidenceLevel,
 
+          evidenceTier:
+            assessment.evidenceTier,
+
+          combinationStrategy:
+            assessment.combinationStrategy,
+
+          predictionBasis:
+            assessment.predictionBasis,
+
           precedentLevel:
             assessment.precedentLevel,
 
@@ -3466,6 +3654,346 @@ async function buildSignalHypotheses({
   return checked
     .filter(Boolean)
     .slice(0, 8);
+}
+
+
+/* ============================================================
+   分子内组合 / Next-generation modality
+
+   仍属于 Potential Combination，
+   但不是 A+B 两个药直接联用。
+
+   当前先生成“设计级假设”，避免在缺少共表达/
+   内吞/组织表达证据时虚构第二靶点或第二Payload。
+   ============================================================ */
+
+function buildIntramolecularHypotheses({
+  highValueSignals,
+}) {
+  const hypotheses =
+    new Map();
+
+  const templates = [
+    {
+      designType: "BISPECIFIC_ADC",
+      strategy: "双靶点设计",
+      shortLabel: "双靶点ADC设计",
+      scoreBreakdown: {
+        diseaseFit: 16,
+        mechanismComplementarity: 22,
+        payloadRationale: 10,
+        unmetNeedResolution: 15,
+        timeWindow: 10,
+        moleculeMaturity: 8,
+      },
+      risk: "Medium",
+      riskRationale:
+        "需要同时验证双靶点共表达、内吞效率、正常组织表达及双靶结合带来的安全性边界。",
+      problem:
+        "单靶点ADC可能受到靶点异质性、抗原逃逸或部分肿瘤细胞内吞不足影响。",
+      compensation:
+        "在保留原ADC杀伤机制的同时，引入第二靶点以扩大可捕获肿瘤细胞范围，并争取改善内吞与递送。",
+      designNextStep:
+        "优先按共表达、内吞、正常组织表达和耐药逃逸筛选第二靶点，再做具体分子设计。",
+    },
+    {
+      designType: "DUAL_PAYLOAD_ADC",
+      strategy: "双Payload设计",
+      shortLabel: "双Payload ADC设计",
+      scoreBreakdown: {
+        diseaseFit: 16,
+        mechanismComplementarity: 21,
+        payloadRationale: 15,
+        unmetNeedResolution: 15,
+        timeWindow: 9,
+        moleculeMaturity: 8,
+      },
+      risk: "High",
+      riskRationale:
+        "双Payload可能增加骨髓抑制、非靶向毒性、稳定性及CMC复杂度，需要先验证治疗窗。",
+      problem:
+        "单一Payload可能出现敏感性差异、Payload耐药或肿瘤内部杀伤机制单一的问题。",
+      compensation:
+        "第二Payload可选择不同杀伤机制，尝试覆盖不同敏感克隆并降低单一Payload耐药带来的失效风险。",
+      designNextStep:
+        "先根据现有Payload的作用机制与主要毒性，筛选机制互补且毒性不过度重叠的第二Payload。",
+    },
+    {
+      designType: "MODALITY_UPGRADE",
+      strategy: "Modality升级",
+      shortLabel: "新型偶联 / 递送升级",
+      scoreBreakdown: {
+        diseaseFit: 14,
+        mechanismComplementarity: 18,
+        payloadRationale: 13,
+        unmetNeedResolution: 13,
+        timeWindow: 10,
+        moleculeMaturity: 7,
+      },
+      risk: "Medium",
+      riskRationale:
+        "更换偶联或递送形式可能改变组织分布、暴露、毒性和制造复杂度，需要重新建立完整开发假设。",
+      problem:
+        "如果现有ADC受限于递送效率、Payload治疗窗、组织分布或耐药，可考虑从单一ADC框架向其他偶联/递送模式扩展。",
+      compensation:
+        "根据靶点生物学与毒性限制，评估ARC、RDC/GNC或其他新型偶联模式是否能改变递送与杀伤方式。",
+      designNextStep:
+        "先明确当前ADC的主要瓶颈属于靶点、Payload、递送还是毒性，再选择对应的下一代Modality。",
+    },
+  ];
+
+  for (
+    const signal of
+    (highValueSignals || []).slice(0, 10)
+  ) {
+    for (
+      const rawAnchor of
+      signal.interventions || []
+    ) {
+      const anchor =
+        normalizeDrugName(
+          rawAnchor
+        );
+
+      const mechanism =
+        mechanismOf(
+          anchor
+        );
+
+      if (
+        mechanism.id !==
+        "ADC"
+      ) {
+        continue;
+      }
+
+      const profileA =
+        drugProfile(
+          anchor,
+          "ADC"
+        );
+
+      const anchorTarget =
+        profileA?.target &&
+        !profileA.target.includes("待核对")
+          ? profileA.target
+          : "当前ADC靶点";
+
+      for (
+        const template of
+        templates
+      ) {
+        const evidenceTier =
+          evidenceTierForCombination({
+            samePattern: null,
+            mechanismAId: "ADC",
+            mechanismBId: template.designType,
+            novelDesign: true,
+          });
+
+        const opportunityScore =
+          Object.values(
+            template.scoreBreakdown
+          ).reduce(
+            (sum, value) =>
+              sum + value,
+            0
+          );
+
+        const profileB =
+          template.designType === "BISPECIFIC_ADC"
+            ? {
+                modality: "Bispecific ADC design",
+                target: anchorTarget + " × 第二靶点待筛选",
+                payload: profileA?.payload || "沿用 / 重选Payload待评估",
+                linker: profileA?.linker || "Linker待核对",
+                dar: "需重新优化",
+                toxicityTags: [],
+              }
+            : template.designType === "DUAL_PAYLOAD_ADC"
+            ? {
+                modality: "Dual-payload ADC design",
+                target: anchorTarget,
+                payload: "第二Payload待筛选（需与现Payload机制互补）",
+                linker: "双Payload构型 / 释放机制待设计",
+                dar: "需重新优化",
+                toxicityTags: [],
+              }
+            : {
+                modality: "Next-generation conjugate / delivery",
+                target: anchorTarget,
+                payload: "ARC / RDC / GNC 等方向需按瓶颈重新选择",
+                linker: "递送 / 偶联体系待设计",
+                dar: null,
+                toxicityTags: [],
+              };
+
+        const predictionBasis = [
+          template.designType === "BISPECIFIC_ADC"
+            ? "靶点异质性 / 抗原逃逸：作为主要设计问题"
+            : template.designType === "DUAL_PAYLOAD_ADC"
+            ? "Payload耐药 / 杀伤机制单一：作为主要设计问题"
+            : "递送、治疗窗或组织分布：作为Modality升级触发条件",
+          template.designType === "DUAL_PAYLOAD_ADC"
+            ? "Payload-level synergy：需优先验证"
+            : "分子内组合：不依赖两个药分别开发后再联用",
+          "前车之鉴：当前按设计级假设处理，后续需专项检索",
+        ];
+
+        const competitionWindow = {
+          score: template.scoreBreakdown.timeWindow,
+          label: "需专项核对",
+          leadingPhase: "需按具体设计检索",
+          leadingPhaseRank: 0,
+          activeTrials: 0,
+          totalTrials: 0,
+          competitionDensity: "待核对",
+          estimatedCatchUp: "待核对",
+          differentiationNeed:
+            "先明确第二靶点 / 第二Payload / 新Modality，再专项检索同类在研项目和领先阶段。",
+          leadingExamples: [],
+          partnerReadiness:
+            "当前为分子设计级假设，不使用普通A+B Partner成熟度口径。",
+          summary:
+            "当前为分子内设计假设，不能直接用A+B临床项目数量替代竞争时间窗口判断。",
+          isDesignLevel: true,
+        };
+
+        const displayName =
+          template.designType === "BISPECIFIC_ADC"
+            ? anchor + " → " + anchorTarget + " × 第二靶点 双抗ADC"
+            : template.designType === "DUAL_PAYLOAD_ADC"
+            ? anchor + " → 双Payload ADC"
+            : anchor + " → 新型偶联 / 递送升级";
+
+        const key =
+          norm(anchor) +
+          "__" +
+          template.designType;
+
+        const hypothesis = {
+          a: anchor,
+          b: template.shortLabel,
+          displayName,
+
+          mechanismA:
+            "ADC / 抗体偶联药物",
+
+          mechanismB:
+            template.strategy,
+
+          mechanismAId:
+            "ADC",
+
+          mechanismBId:
+            template.designType,
+
+          profileA,
+          profileB,
+
+          combinationStrategy:
+            template.strategy,
+
+          opportunityScore,
+          scoreBreakdown:
+            template.scoreBreakdown,
+
+          risk:
+            template.risk,
+
+          riskRationale:
+            template.riskRationale,
+
+          evidenceLevel:
+            "设计级证据：当前主要为机制与分子架构推演",
+
+          evidenceTier,
+
+          precedentLevel:
+            "暂无直接前车之鉴（设计级）",
+
+          predictionBasis,
+
+          timeWindow:
+            template.scoreBreakdown.timeWindow,
+
+          timeWindowLabel:
+            "需专项核对",
+
+          competitionWindow,
+
+          triggerSignal:
+            describeTriggerSignal(
+              signal
+            ),
+
+          triggerProject:
+            signal.title,
+
+          triggerNctId:
+            signal.nctId,
+
+          triggerStatus:
+            signal.status,
+
+          triggerUpdated:
+            signal.updated,
+
+          problem:
+            template.problem,
+
+          compensation:
+            template.compensation,
+
+          rationale:
+            "该候选不是A+B直接联用，而是把组合思路前移到一个分子内部。",
+
+          designNextStep:
+            template.designNextStep,
+
+          developmentStatus:
+            "分子设计级假设；需完成具体靶点 / Payload / 构型后再核对现有开发",
+
+          verification:
+            "未按A+B方式核对",
+
+          marketWindow:
+            competitionWindow.summary,
+
+          sourceType:
+            "Molecule design",
+
+          score:
+            opportunityScore,
+        };
+
+        if (
+          !hypotheses.has(
+            key
+          ) ||
+          hypothesis.score >
+            hypotheses.get(
+              key
+            ).score
+        ) {
+          hypotheses.set(
+            key,
+            hypothesis
+          );
+        }
+      }
+    }
+  }
+
+  return [
+    ...hypotheses.values(),
+  ]
+    .sort(
+      (a, b) =>
+        b.score -
+        a.score
+    )
+    .slice(0, 9);
 }
 
 /* ============================================================
@@ -3873,6 +4401,15 @@ export async function GET(
     });
 
   /* ==========================================================
+     8. 分子内组合 / Next-generation modality
+     ========================================================== */
+
+  const intramolecularHypotheses =
+    buildIntramolecularHypotheses({
+      highValueSignals,
+    });
+
+  /* ==========================================================
      OUTPUT
      ========================================================== */
 
@@ -3900,6 +4437,13 @@ export async function GET(
     */
 
     signalHypotheses,
+
+    /*
+      Potential：
+      分子内组合 / Next-generation modality
+    */
+
+    intramolecularHypotheses,
 
     /*
       On Going：
@@ -3944,6 +4488,9 @@ export async function GET(
 
       signalHypothesisCount:
         signalHypotheses.length,
+
+      intramolecularHypothesisCount:
+        intramolecularHypotheses.length,
     },
   });
 }
