@@ -497,6 +497,10 @@ function PotentialCombinations({ data }) {
   const [windowFilter, setWindowFilter] = useState("all");
   const [precedentFilter, setPrecedentFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all");
+  const [comboFilter, setComboFilter] = useState("");
+  const [profileFilter, setProfileFilter] = useState("");
+  const [rationaleFilter, setRationaleFilter] = useState("");
+  const [developmentFilter, setDevelopmentFilter] = useState("all");
 
   const allCandidates = [
     ...signalHypotheses.map((x) => ({
@@ -599,6 +603,87 @@ function PotentialCombinations({ data }) {
       return false;
     }
 
+    const comboText = [
+      x.a,
+      x.b,
+      x.mechanismA,
+      x.mechanismB,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const comboKw = comboFilter.trim().toLowerCase();
+
+    if (
+      comboKw &&
+      !comboText.includes(comboKw)
+    ) {
+      return false;
+    }
+
+    const profileText = [
+      x.profileA?.modality,
+      x.profileA?.target,
+      x.profileA?.payload,
+      x.profileA?.linker,
+      x.profileA?.radionuclide,
+      x.profileB?.modality,
+      x.profileB?.target,
+      x.profileB?.payload,
+      x.profileB?.linker,
+      x.profileB?.radionuclide,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const profileKw = profileFilter.trim().toLowerCase();
+
+    if (
+      profileKw &&
+      !profileText.includes(profileKw)
+    ) {
+      return false;
+    }
+
+    const rationaleText = [
+      x.problem,
+      x.compensation,
+      x.rationale,
+      x.triggerSignal,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const rationaleKw = rationaleFilter.trim().toLowerCase();
+
+    if (
+      rationaleKw &&
+      !rationaleText.includes(rationaleKw)
+    ) {
+      return false;
+    }
+
+    if (
+      developmentFilter === "verified" &&
+      !String(x.verification || "").includes("已核对")
+    ) {
+      return false;
+    }
+
+    if (
+      developmentFilter === "pending" &&
+      !(
+        String(x.verification || "").includes("不完整") ||
+        String(x.developmentStatus || "").includes("待") ||
+        String(x.developmentStatus || "").includes("确认")
+      )
+    ) {
+      return false;
+    }
+
     return true;
   });
 
@@ -609,6 +694,10 @@ function PotentialCombinations({ data }) {
     setWindowFilter("all");
     setPrecedentFilter("all");
     setRiskFilter("all");
+    setComboFilter("");
+    setProfileFilter("");
+    setRationaleFilter("");
+    setDevelopmentFilter("all");
   }
 
   return (
@@ -773,6 +862,110 @@ function PotentialCombinations({ data }) {
                 <th>药物画像</th>
                 <th>为什么可能成立</th>
                 <th>现有开发核对</th>
+              </tr>
+
+              <tr className="columnFilterRow">
+                <th>
+                  <input
+                    className="columnFilterInput"
+                    value={comboFilter}
+                    onChange={(e) => setComboFilter(e.target.value)}
+                    placeholder="分子 / 机制"
+                  />
+                </th>
+
+                <th>
+                  <select
+                    className="columnFilterSelect"
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
+                  >
+                    <option value="all">全部</option>
+                    <option value="Signal-driven">最新信号</option>
+                    <option value="Pattern transfer">同类迁移</option>
+                  </select>
+                </th>
+
+                <th>
+                  <select
+                    className="columnFilterSelect"
+                    value={scoreFilter}
+                    onChange={(e) => setScoreFilter(e.target.value)}
+                  >
+                    <option value="all">不限</option>
+                    <option value="70">≥70</option>
+                    <option value="80">≥80</option>
+                    <option value="90">≥90</option>
+                  </select>
+                </th>
+
+                <th>
+                  <select
+                    className="columnFilterSelect"
+                    value={windowFilter}
+                    onChange={(e) => setWindowFilter(e.target.value)}
+                  >
+                    <option value="all">全部</option>
+                    <option value="good">窗口较好</option>
+                    <option value="open">仍有窗口</option>
+                    <option value="crowded">拥挤 / 偏晚</option>
+                  </select>
+                </th>
+
+                <th>
+                  <select
+                    className="columnFilterSelect"
+                    value={precedentFilter}
+                    onChange={(e) => setPrecedentFilter(e.target.value)}
+                  >
+                    <option value="all">全部</option>
+                    <option value="none">暂无直接先例</option>
+                    <option value="has">已有同类先例</option>
+                  </select>
+                </th>
+
+                <th>
+                  <select
+                    className="columnFilterSelect"
+                    value={riskFilter}
+                    onChange={(e) => setRiskFilter(e.target.value)}
+                  >
+                    <option value="all">全部</option>
+                    <option value="Low">低</option>
+                    <option value="Medium">中</option>
+                    <option value="High">高</option>
+                  </select>
+                </th>
+
+                <th>
+                  <input
+                    className="columnFilterInput"
+                    value={profileFilter}
+                    onChange={(e) => setProfileFilter(e.target.value)}
+                    placeholder="Target / Payload"
+                  />
+                </th>
+
+                <th>
+                  <input
+                    className="columnFilterInput"
+                    value={rationaleFilter}
+                    onChange={(e) => setRationaleFilter(e.target.value)}
+                    placeholder="问题 / 互补"
+                  />
+                </th>
+
+                <th>
+                  <select
+                    className="columnFilterSelect"
+                    value={developmentFilter}
+                    onChange={(e) => setDevelopmentFilter(e.target.value)}
+                  >
+                    <option value="all">全部</option>
+                    <option value="verified">已核对</option>
+                    <option value="pending">待确认</option>
+                  </select>
+                </th>
               </tr>
             </thead>
 
