@@ -273,6 +273,68 @@ const MECHANISM_RULES = [
   },
 
   {
+    id: "ADC",
+    label: "ADC / 抗体偶联药物",
+    keywords: [
+      "deruxtecan",
+      "vedotin",
+      "govitecan",
+      "tirumotecan",
+      "emtansine",
+      "mafodotin",
+      "tesirine",
+      "ozogamicin",
+      "soravtansine",
+      "bnt324",
+      "db-1311",
+      "skb264",
+      "mk-2870",
+      "rc48",
+      "disitamab",
+      "enfortumab",
+      "datopotamab",
+      "sacituzumab",
+      "antibody drug conjugate",
+      "adc",
+    ],
+  },
+
+  {
+    id: "RPT",
+    label: "Radiopharmaceutical / 核素治疗",
+    keywords: [
+      "177lu",
+      "lu-177",
+      "lutetium",
+      "225ac",
+      "ac-225",
+      "actinium",
+      "212pb",
+      "pb-212",
+      "radioligand",
+      "radiopharmaceutical",
+      "pluvicto",
+      "lutathera",
+      "vipivotide",
+      "dotatate",
+      "psma-617",
+    ],
+  },
+
+  {
+    id: "ARPI",
+    label: "AR pathway inhibitor",
+    keywords: [
+      "arpi",
+      "androgen receptor pathway inhibitor",
+      "enzalutamide",
+      "abiraterone",
+      "apalutamide",
+      "darolutamide",
+    ],
+  },
+
+  {
     id: "EGFR",
     label: "EGFR",
     keywords: [
@@ -368,6 +430,341 @@ function mechanismOf(name = "") {
   return {
     id: "UNKNOWN",
     label: "机制待识别",
+  };
+}
+
+
+/* ============================================================
+   Drug profile + explainable combination scoring
+   ============================================================ */
+
+const ADC_TARGET_RULES = [
+  { keywords: ["trastuzumab deruxtecan", "t-dxd", "enhertu"], target: "HER2" },
+  { keywords: ["datopotamab deruxtecan", "dato-dxd"], target: "TROP2" },
+  { keywords: ["sacituzumab govitecan", "trodelvy"], target: "TROP2" },
+  { keywords: ["sacituzumab tirumotecan", "skb264", "mk-2870"], target: "TROP2" },
+  { keywords: ["enfortumab vedotin", "padcev"], target: "Nectin-4" },
+  { keywords: ["disitamab vedotin", "rc48"], target: "HER2" },
+  { keywords: ["bnt324", "db-1311"], target: "B7-H3" },
+  { keywords: ["trastuzumab emtansine", "t-dm1", "kadcyla"], target: "HER2" },
+  { keywords: ["mirvetuximab soravtansine", "elahere"], target: "FRα" },
+  { keywords: ["tisotumab vedotin", "tivdak"], target: "Tissue Factor" },
+  { keywords: ["polatuzumab vedotin", "polivy"], target: "CD79b" },
+  { keywords: ["brentuximab vedotin", "adcetris"], target: "CD30" },
+  { keywords: ["loncastuximab tesirine", "zynlonta"], target: "CD19" },
+  { keywords: ["belantamab mafodotin", "blenrep"], target: "BCMA" },
+];
+
+function inferAdcPayload(name = "") {
+  const x = norm(name);
+
+  if (x.includes("deruxtecan")) {
+    return {
+      payload: "DXd / Topoisomerase-I inhibitor",
+      linker: "cleavable linker",
+      toxicityTags: ["myelosuppression", "ILD"],
+    };
+  }
+
+  if (x.includes("vedotin")) {
+    return {
+      payload: "MMAE / microtubule inhibitor",
+      linker: "protease-cleavable linker",
+      toxicityTags: ["myelosuppression", "neuropathy"],
+    };
+  }
+
+  if (x.includes("govitecan")) {
+    return {
+      payload: "SN-38 / Topoisomerase-I inhibitor",
+      linker: "cleavable linker",
+      toxicityTags: ["myelosuppression", "diarrhea"],
+    };
+  }
+
+  if (x.includes("tirumotecan")) {
+    return {
+      payload: "Topoisomerase-I inhibitor payload",
+      linker: "cleavable linker",
+      toxicityTags: ["myelosuppression"],
+    };
+  }
+
+  if (x.includes("emtansine")) {
+    return {
+      payload: "DM1 / microtubule inhibitor",
+      linker: "non-cleavable linker",
+      toxicityTags: ["thrombocytopenia", "hepatotoxicity"],
+    };
+  }
+
+  return {
+    payload: "Payload 待核对",
+    linker: "Linker 待核对",
+    toxicityTags: [],
+  };
+}
+
+function toxicityTagsForMechanism(mechanismId) {
+  const map = {
+    PARP: ["myelosuppression"],
+    CHEMOTHERAPY: ["myelosuppression"],
+    VEGF: ["bleeding", "hypertension"],
+    PD1: ["immune"],
+    PDL1: ["immune"],
+    CTLA4: ["immune"],
+    PD1_VEGF_BISPECIFIC: ["immune", "bleeding", "hypertension"],
+    PDL1_VEGF_BISPECIFIC: ["immune", "bleeding", "hypertension"],
+    ARPI: ["cardiometabolic"],
+  };
+
+  return map[mechanismId] || [];
+}
+
+function drugProfile(name = "", knownMechanismId = null) {
+  const cleanName = normalizeDrugName(name);
+  const x = norm(cleanName);
+  const mechanism = knownMechanismId
+    ? MECHANISM_RULES.find((r) => r.id === knownMechanismId) || mechanismOf(cleanName)
+    : mechanismOf(cleanName);
+
+  if (mechanism.id === "ADC") {
+    const targetRule = ADC_TARGET_RULES.find((rule) =>
+      rule.keywords.some((k) => x.includes(norm(k)))
+    );
+    const payloadInfo = inferAdcPayload(cleanName);
+
+    return {
+      modality: "ADC",
+      target: targetRule?.target || "Target 待核对",
+      payload: payloadInfo.payload,
+      linker: payloadInfo.linker,
+      dar: "DAR 待核对具体分子",
+      radionuclide: null,
+      radiationType: null,
+      toxicityTags: payloadInfo.toxicityTags,
+    };
+  }
+
+  if (mechanism.id === "RPT") {
+    let target = "Target 待核对";
+    if (x.includes("psma")) target = "PSMA";
+    if (x.includes("dotatate") || x.includes("lutathera")) target = "SSTR";
+
+    let radionuclide = "核素待核对";
+    let radiationType = "辐射类型待核对";
+
+    if (x.includes("177lu") || x.includes("lu 177") || x.includes("lutetium")) {
+      radionuclide = "Lu-177";
+      radiationType = "β-emitter";
+    }
+
+    if (x.includes("225ac") || x.includes("ac 225") || x.includes("actinium")) {
+      radionuclide = "Ac-225";
+      radiationType = "α-emitter";
+    }
+
+    if (x.includes("212pb") || x.includes("pb 212")) {
+      radionuclide = "Pb-212";
+      radiationType = "α-emitting decay chain";
+    }
+
+    return {
+      modality: "RPT",
+      target,
+      payload: null,
+      linker: "Chelator / targeting construct 待核对",
+      dar: null,
+      radionuclide,
+      radiationType,
+      toxicityTags: ["myelosuppression", "renal"],
+    };
+  }
+
+  return {
+    modality: mechanism.label || "机制待识别",
+    target: mechanism.label || "Target 待核对",
+    payload: null,
+    linker: null,
+    dar: null,
+    radionuclide: null,
+    radiationType: null,
+    toxicityTags: toxicityTagsForMechanism(mechanism.id),
+  };
+}
+
+function mechanismPairKey(a, b) {
+  return [a, b].sort().join("__");
+}
+
+const COMPLEMENTARITY_SCORE = {
+  ADC__PD1: 18,
+  ADC__PDL1: 18,
+  ADC__PD1_VEGF_BISPECIFIC: 20,
+  ADC__PDL1_VEGF_BISPECIFIC: 20,
+  ADC__VEGF: 15,
+  ADC__PARP: 17,
+  ARPI__RPT: 16,
+  PARP__RPT: 18,
+  PD1__RPT: 16,
+  PDL1__RPT: 16,
+  PD1__VEGF: 18,
+  PDL1__VEGF: 18,
+  CTLA4__PD1: 17,
+  CTLA4__PDL1: 17,
+  BCL2__CD20: 18,
+  BTK__CD20: 17,
+};
+
+function assessSafety(profileA, profileB, mechanismAId, mechanismBId) {
+  const a = new Set(profileA?.toxicityTags || []);
+  const b = new Set(profileB?.toxicityTags || []);
+  const overlapTags = [...a].filter((x) => b.has(x));
+  const pair = mechanismPairKey(mechanismAId, mechanismBId);
+
+  let risk = "Low";
+  let safetyScore = 10;
+
+  if (
+    overlapTags.length >= 2 ||
+    pair === "ADC__PARP" ||
+    pair === "PARP__RPT"
+  ) {
+    risk = "High";
+    safetyScore = 4;
+  } else if (
+    overlapTags.length === 1 ||
+    a.size === 0 ||
+    b.size === 0
+  ) {
+    risk = "Medium";
+    safetyScore = 7;
+  }
+
+  return {
+    risk,
+    safetyScore,
+    overlapTags,
+    rationale: overlapTags.length
+      ? "主要重叠风险：" + overlapTags.join("、")
+      : risk === "Low"
+      ? "当前规则未识别明显主要毒性重叠"
+      : "安全性信息仍有缺口，暂不按低风险处理",
+  };
+}
+
+function scoreCombination({
+  mechanismAId,
+  mechanismBId,
+  indicationOverlap = [],
+  samePattern = null,
+  candidateDrug = null,
+  profileA,
+  profileB,
+}) {
+  const pair = mechanismPairKey(mechanismAId, mechanismBId);
+
+  const diseaseFit =
+    indicationOverlap.length >= 2
+      ? 20
+      : indicationOverlap.length === 1
+      ? 17
+      : candidateDrug
+      ? 10
+      : 8;
+
+  const mechanismComplementarity =
+    COMPLEMENTARITY_SCORE[pair] ??
+    (mechanismAId !== mechanismBId &&
+    mechanismAId !== "UNKNOWN" &&
+    mechanismBId !== "UNKNOWN"
+      ? 12
+      : 5);
+
+  let payloadRationale = 5;
+  if (pair === "ADC__PARP" || pair === "PARP__RPT") payloadRationale = 15;
+  else if (
+    pair === "ADC__PD1" ||
+    pair === "ADC__PDL1" ||
+    pair === "ADC__PD1_VEGF_BISPECIFIC" ||
+    pair === "ADC__PDL1_VEGF_BISPECIFIC"
+  ) payloadRationale = 12;
+  else if (pair.includes("ADC") || pair.includes("RPT")) payloadRationale = 9;
+
+  let resistanceComplementarity =
+    mechanismAId !== mechanismBId &&
+    mechanismAId !== "UNKNOWN" &&
+    mechanismBId !== "UNKNOWN"
+      ? 8
+      : 4;
+
+  if (pair === "ADC__PARP" || pair === "PARP__RPT") {
+    resistanceComplementarity = 10;
+  }
+
+  let tmeImmune = 3;
+  if (
+    [mechanismAId, mechanismBId].some((x) =>
+      ["PD1", "PDL1", "CTLA4", "PD1_VEGF_BISPECIFIC", "PDL1_VEGF_BISPECIFIC"].includes(x)
+    )
+  ) {
+    tmeImmune = 8;
+  }
+
+  if (
+    pair === "ADC__PD1_VEGF_BISPECIFIC" ||
+    pair === "ADC__PDL1_VEGF_BISPECIFIC"
+  ) {
+    tmeImmune = 10;
+  }
+
+  const trialCount = samePattern?.trialCount || 0;
+  const evidence =
+    trialCount >= 5
+      ? 15
+      : trialCount >= 2
+      ? 12
+      : trialCount === 1
+      ? 9
+      : candidateDrug?.activeTrials >= 3
+      ? 6
+      : 4;
+
+  const evidenceLevel =
+    trialCount >= 5
+      ? "同机制临床证据较多"
+      : trialCount >= 2
+      ? "已有同机制临床验证"
+      : trialCount === 1
+      ? "早期临床线索"
+      : "机制假设";
+
+  const safety = assessSafety(
+    profileA,
+    profileB,
+    mechanismAId,
+    mechanismBId
+  );
+
+  const scoreBreakdown = {
+    diseaseFit,
+    mechanismComplementarity,
+    payloadRationale,
+    resistanceComplementarity,
+    tmeImmune,
+    evidence,
+    safetyControllability: safety.safetyScore,
+  };
+
+  return {
+    opportunityScore: Object.values(scoreBreakdown).reduce(
+      (sum, value) => sum + value,
+      0
+    ),
+    scoreBreakdown,
+    risk: safety.risk,
+    riskRationale: safety.rationale,
+    evidenceLevel,
   };
 }
 
