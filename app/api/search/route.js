@@ -715,16 +715,14 @@ function scoreCombination({
 
   const patternTrials = samePattern?.trialCount || 0;
 
+  const competitionWindow =
+    assessCompetitionWindow({
+      samePattern,
+      candidateDrug,
+    });
+
   const timeWindow =
-    patternTrials === 0
-      ? 15
-      : patternTrials <= 1
-      ? 13
-      : patternTrials <= 3
-      ? 10
-      : patternTrials <= 7
-      ? 6
-      : 3;
+    competitionWindow.score;
 
   const moleculeMaturity =
     candidateDrug?.activeTrials >= 5
@@ -752,13 +750,7 @@ function scoreCombination({
       : "暂无直接前车之鉴";
 
   const timeWindowLabel =
-    timeWindow >= 13
-      ? "窗口较好"
-      : timeWindow >= 9
-      ? "仍有窗口"
-      : timeWindow >= 5
-      ? "开始拥挤"
-      : "窗口偏晚";
+    competitionWindow.label;
 
   const safety = assessSafety(
     profileA,
@@ -788,6 +780,7 @@ function scoreCombination({
     precedentLevel,
     timeWindow,
     timeWindowLabel,
+    competitionWindow,
   };
 }
 
@@ -1256,6 +1249,127 @@ function dedupe(arr) {
 }
 
 /* ============================================================
+   竞争阶段 / 时间窗口基础函数
+   ============================================================ */
+
+function phaseRank(phases = []) {
+  const text = (phases || [])
+    .join(" ")
+    .toUpperCase();
+
+  if (text.includes("PHASE4") || text.includes("PHASE 4")) return 4;
+  if (text.includes("PHASE3") || text.includes("PHASE 3")) return 3;
+  if (text.includes("PHASE2") || text.includes("PHASE 2")) return 2;
+  if (
+    text.includes("PHASE1") ||
+    text.includes("PHASE 1") ||
+    text.includes("EARLY_PHASE1") ||
+    text.includes("EARLY PHASE 1")
+  ) return 1;
+
+  return 0;
+}
+
+function phaseLabel(rank = 0) {
+  if (rank >= 4) return "IV期 / 上市后";
+  if (rank === 3) return "III期";
+  if (rank === 2) return "II期";
+  if (rank === 1) return "I期 / 早期";
+  return "未发现明确领先临床阶段";
+}
+
+function estimateCatchUpGap(rank = 0) {
+  if (rank >= 4) return "≥5年";
+  if (rank === 3) return "约4–6年";
+  if (rank === 2) return "约2–4年";
+  if (rank === 1) return "约0–2年";
+  return "尚未形成明确阶段差";
+}
+
+function assessCompetitionWindow({
+  samePattern,
+  candidateDrug,
+}) {
+  const totalTrials = samePattern?.trialCount || 0;
+  const activeTrials = samePattern?.activeTrials || 0;
+  const leadingPhaseRank = samePattern?.leadingPhaseRank || 0;
+  const leadingPhase = phaseLabel(leadingPhaseRank);
+
+  let score = 15;
+
+  if (leadingPhaseRank >= 4) score -= 7;
+  else if (leadingPhaseRank === 3) score -= 6;
+  else if (leadingPhaseRank === 2) score -= 3;
+  else if (leadingPhaseRank === 1) score -= 1;
+
+  if (activeTrials >= 8) score -= 3;
+  else if (activeTrials >= 4) score -= 2;
+  else if (activeTrials >= 2) score -= 1;
+
+  if (totalTrials >= 12) score -= 2;
+  else if (totalTrials >= 6) score -= 1;
+
+  score = Math.max(0, Math.min(15, score));
+
+  const label =
+    score >= 13 ? "窗口较好" :
+    score >= 9 ? "仍有窗口" :
+    score >= 5 ? "开始拥挤" : "窗口偏晚";
+
+  const competitionDensity =
+    activeTrials >= 8 || totalTrials >= 12 ? "很高" :
+    activeTrials >= 4 || totalTrials >= 6 ? "高" :
+    activeTrials >= 2 || totalTrials >= 3 ? "中" : "低";
+
+  const differentiationNeed =
+    score >= 13
+      ? "可优先验证机制与人群，不必依赖强差异化"
+      : score >= 9
+      ? "建议至少具备适应症、biomarker、分子或给药方案之一的差异化"
+      : score >= 5
+      ? "需要较强差异化，否则时间成本可能削弱商业价值"
+      : "除非存在非常明确的差异化优势，否则进入时机偏晚";
+
+  const estimatedCatchUp = estimateCatchUpGap(leadingPhaseRank);
+
+  const leadingExamples =
+    (samePattern?.sourceCombinations || [])
+      .slice(0, 3)
+      .map((x) => x.combo)
+      .filter(Boolean);
+
+  const partnerReadiness =
+    candidateDrug?.activeTrials >= 3
+      ? "Partner已有较多临床开发，可降低组合启动准备成本"
+      : candidateDrug?.activeTrials >= 1
+      ? "Partner已有临床开发基础"
+      : candidateDrug?.source === "catalog"
+      ? "Partner为候选目录资产，仍需核对可获得性和开发成熟度"
+      : "Partner成熟度仍需进一步核对";
+
+  const summary =
+    totalTrials === 0
+      ? "当前检索未发现明确同类联合临床开发，竞争窗口相对靠前。"
+      : "同类联合最高已到" + leadingPhase +
+        "；活跃项目" + activeTrials + "项 / 总计" + totalTrials +
+        "项；按当前阶段差粗略估算追赶压力" + estimatedCatchUp + "。";
+
+  return {
+    score,
+    label,
+    leadingPhase,
+    leadingPhaseRank,
+    activeTrials,
+    totalTrials,
+    competitionDensity,
+    estimatedCatchUp,
+    differentiationNeed,
+    leadingExamples,
+    partnerReadiness,
+    summary,
+  };
+}
+/* ============================================================
    已有联合
    ============================================================ */
 
@@ -1679,6 +1793,9 @@ function buildCombinationPatterns(
           failedTrials:
             0,
 
+          leadingPhaseRank:
+            0,
+
           problem:
             logic.problem,
 
@@ -1723,6 +1840,9 @@ function buildCombinationPatterns(
 
       risk:
         combo.risk,
+
+      phases:
+        combo.phases || [],
     });
 
     p.trialCount +=
@@ -1733,6 +1853,12 @@ function buildCombinationPatterns(
 
     p.failedTrials +=
       combo.risk || 0;
+
+    p.leadingPhaseRank =
+      Math.max(
+        p.leadingPhaseRank || 0,
+        phaseRank(combo.phases || [])
+      );
 
     for (
       const indication of
@@ -2338,6 +2464,9 @@ async function buildPotentialCombinations(
           timeWindowLabel:
             assessment.timeWindowLabel,
 
+          competitionWindow:
+            assessment.competitionWindow,
+
           problem:
             pattern.problem,
 
@@ -2375,6 +2504,9 @@ async function buildPotentialCombinations(
 
           evidenceGap:
             "仍需补充具体机制、前临床协同、临床疗效和安全性证据。",
+
+          marketWindow:
+            assessment.competitionWindow?.summary || "",
 
           score:
             assessment.opportunityScore,
@@ -3201,6 +3333,9 @@ async function buildSignalHypotheses({
           timeWindowLabel:
             assessment.timeWindowLabel,
 
+          competitionWindow:
+            assessment.competitionWindow,
+
           triggerSignal,
 
           triggerProject:
@@ -3243,6 +3378,7 @@ async function buildSignalHypotheses({
               : "目前为靶点级联合假设，待筛选具体B资产",
 
           marketWindow:
+            assessment.competitionWindow?.summary ||
             assessMarketWindow({
               samePattern,
               candidateDrug,
