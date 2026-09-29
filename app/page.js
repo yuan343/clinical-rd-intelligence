@@ -329,7 +329,7 @@ function RealtimeSignals({ data, onOpenPotential, onOpenOngoing }) {
               <tr>
                 <th>具体候选</th>
                 <th>机会分</th>
-                <th>时间窗口</th>
+                <th>竞争时间窗口</th>
                 <th>前车之鉴</th>
                 <th>触发原因</th>
                 <th>详情</th>
@@ -710,7 +710,7 @@ function PotentialCombinations({ data }) {
         }}
       >
         <div style={{ fontSize: 15, fontWeight: 700 }}>
-          实时问题 → 机制推导 → 具体分子 → 时间窗口 → 100分机会评分
+          实时问题 → 机制推导 → 具体分子 → 竞争时间窗口 → 100分机会评分
         </div>
 
         <div
@@ -738,7 +738,7 @@ function PotentialCombinations({ data }) {
         />
         <Metric
           n={candidates.filter((x) => (x.timeWindow || 0) >= 12).length}
-          l="时间窗口较好"
+          l="竞争窗口较好"
         />
       </div>
 
@@ -796,7 +796,7 @@ function PotentialCombinations({ data }) {
           </label>
 
           <label className="filterField">
-            <span>时间窗口</span>
+            <span>竞争时间窗口</span>
             <select
               value={windowFilter}
               onChange={(e) => setWindowFilter(e.target.value)}
@@ -845,7 +845,7 @@ function PotentialCombinations({ data }) {
 
         <div className="note">
           100分构成：疾病/人群20 + 机制互补25 + Payload/杀伤协同15 +
-          解决耐药/未满足需求15 + 时间窗口15 + 分子成熟度10。
+          解决耐药/未满足需求15 + 竞争时间窗口15 + 分子成熟度10。
           安全性和前车之鉴单独显示，不再混入机会分。
         </div>
 
@@ -998,20 +998,43 @@ function PotentialCombinations({ data }) {
                         机制 {x.scoreBreakdown.mechanismComplementarity} ·
                         Payload {x.scoreBreakdown.payloadRationale} ·
                         未满足需求 {x.scoreBreakdown.unmetNeedResolution} ·
-                        时间 {x.scoreBreakdown.timeWindow} ·
+                        竞争窗口 {x.scoreBreakdown.timeWindow} ·
                         分子成熟度 {x.scoreBreakdown.moleculeMaturity}
                       </div>
                     )}
                   </td>
 
                   <td>
-                    <b>{x.timeWindowLabel || "待评估"}</b>
-                    <div className="small">
-                      时间窗口 {x.timeWindow ?? "-"} / 15
+                    <div className="timeWindowBox">
+                      <div className="timeWindowTop">
+                        <b>{x.timeWindowLabel || "待评估"}</b>
+                        <span className="timeWindowScore">
+                          {x.timeWindow ?? "-"} / 15
+                        </span>
+                      </div>
+
+                      {x.competitionWindow ? (
+                        <>
+                          <div className="small">
+                            领先阶段：<b>{x.competitionWindow.leadingPhase}</b>
+                          </div>
+                          <div className="small">
+                            同类竞争：活跃 {x.competitionWindow.activeTrials} / 总计 {x.competitionWindow.totalTrials}
+                            {" · "}密度 {x.competitionWindow.competitionDensity}
+                          </div>
+                          <div className="small">
+                            追赶压力：<b>{x.competitionWindow.estimatedCatchUp}</b>
+                          </div>
+                          <div className="small timeWindowReason">
+                            {x.competitionWindow.differentiationNeed}
+                          </div>
+                        </>
+                      ) : (
+                        x.marketWindow && (
+                          <div className="small">{x.marketWindow}</div>
+                        )
+                      )}
                     </div>
-                    {x.marketWindow && (
-                      <div className="small">{x.marketWindow}</div>
-                    )}
                   </td>
 
                   <td>
