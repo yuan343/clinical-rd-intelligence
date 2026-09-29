@@ -2235,6 +2235,39 @@ async function buildPotentialCombinations(
           b.activeTrials +
           indicationOverlap.length * 3;
 
+        const profileA =
+          drugProfile(
+            a.drug,
+            pattern.mechanismAId
+          );
+
+        const profileB =
+          drugProfile(
+            b.drug,
+            pattern.mechanismBId
+          );
+
+        const assessment =
+          scoreCombination({
+            mechanismAId:
+              pattern.mechanismAId,
+
+            mechanismBId:
+              pattern.mechanismBId,
+
+            indicationOverlap,
+
+            samePattern:
+              pattern,
+
+            candidateDrug:
+              b,
+
+            profileA,
+
+            profileB,
+          });
+
         const candidate = {
           a:
             a.drug,
@@ -2247,6 +2280,31 @@ async function buildPotentialCombinations(
 
           mechanismB:
             b.mechanism,
+
+          mechanismAId:
+            pattern.mechanismAId,
+
+          mechanismBId:
+            pattern.mechanismBId,
+
+          profileA,
+
+          profileB,
+
+          opportunityScore:
+            assessment.opportunityScore,
+
+          scoreBreakdown:
+            assessment.scoreBreakdown,
+
+          risk:
+            assessment.risk,
+
+          riskRationale:
+            assessment.riskRationale,
+
+          evidenceLevel:
+            assessment.evidenceLevel,
 
           problem:
             pattern.problem,
@@ -2286,7 +2344,8 @@ async function buildPotentialCombinations(
           evidenceGap:
             "仍需补充具体机制、前临床协同、临床疗效和安全性证据。",
 
-          score,
+          score:
+            assessment.opportunityScore,
         };
 
         if (
@@ -2515,6 +2574,94 @@ const SIGNAL_RULES = {
 
       rationale:
         "由最新临床 Signal 触发，判断是否需要加强早期疾病控制能力。",
+    },
+  ],
+
+  ADC: [
+    {
+      targetMechanismId:
+        "PD1",
+
+      problem:
+        "如果ADC已经具备直接肿瘤杀伤，但疗效深度或持续性仍有限，需要判断是否存在免疫抑制导致的残留疾病。",
+
+      compensation:
+        "PD-1阻断可解除T细胞抑制，与ADC导致的肿瘤细胞死亡和抗原释放形成互补。",
+
+      rationale:
+        "由ADC项目动态触发，重点验证细胞毒杀伤与免疫激活能否形成互补。",
+    },
+
+    {
+      targetMechanismId:
+        "PDL1_VEGF_BISPECIFIC",
+
+      problem:
+        "如果ADC单药存在肿瘤微环境抑制、异质性或持续应答不足，可同时考虑免疫和血管生成两个维度。",
+
+      compensation:
+        "PD-L1×VEGF机制可能同时解除免疫抑制并改善肿瘤血管/TME，与ADC直接杀伤形成三层互补。",
+
+      rationale:
+        "由ADC项目动态触发，探索ADC + IO + VEGF方向。",
+    },
+
+    {
+      targetMechanismId:
+        "PARP",
+
+      problem:
+        "如果ADC payload通过DNA损伤发挥作用，但肿瘤仍可通过DNA损伤修复存活，可关注DDR相关耐药。",
+
+      compensation:
+        "PARP抑制可能降低DNA损伤修复能力，形成payload-level协同。",
+
+      rationale:
+        "由ADC payload机制触发，优先在Topo-I等DNA损伤型payload中验证。",
+    },
+  ],
+
+  RPT: [
+    {
+      targetMechanismId:
+        "ARPI",
+
+      problem:
+        "如果靶向核素治疗后仍存在AR通路驱动疾病，可考虑同时压制肿瘤生物学驱动。",
+
+      compensation:
+        "ARPI抑制前列腺癌关键驱动通路，与核素产生的DNA损伤形成不同层面的互补。",
+
+      rationale:
+        "由RPT项目动态触发，重点用于PSMA相关前列腺癌场景判断。",
+    },
+
+    {
+      targetMechanismId:
+        "PARP",
+
+      problem:
+        "核素治疗造成DNA损伤后，肿瘤细胞可能依赖DNA损伤修复维持存活。",
+
+      compensation:
+        "PARP抑制可能削弱DNA修复能力，与放射性损伤形成机制协同。",
+
+      rationale:
+        "由RPT的DNA损伤机制触发，但骨髓抑制重叠风险需要单独评估。",
+    },
+
+    {
+      targetMechanismId:
+        "PD1",
+
+      problem:
+        "如果核素治疗产生局部肿瘤损伤但系统免疫应答仍不足，可关注免疫抑制环节。",
+
+      compensation:
+        "PD-1阻断可能放大肿瘤损伤后的免疫效应。",
+
+      rationale:
+        "由RPT项目动态触发，作为机制假设进行验证。",
     },
   ],
 
@@ -2875,6 +3022,45 @@ async function buildSignalHypotheses({
             signal
           );
 
+        const profileA =
+          drugProfile(
+            anchor,
+            anchorMechanism.id
+          );
+
+        const profileB =
+          drugProfile(
+            b,
+            rule.targetMechanismId
+          );
+
+        const indicationOverlap =
+          candidateDrug
+            ? overlap(
+                signal.conditions || [],
+                candidateDrug.indications || []
+              )
+            : [];
+
+        const assessment =
+          scoreCombination({
+            mechanismAId:
+              anchorMechanism.id,
+
+            mechanismBId:
+              rule.targetMechanismId,
+
+            indicationOverlap,
+
+            samePattern,
+
+            candidateDrug,
+
+            profileA,
+
+            profileB,
+          });
+
         const hypothesis = {
           a:
             anchor,
@@ -2886,6 +3072,31 @@ async function buildSignalHypotheses({
 
           mechanismB:
             bMechanism,
+
+          mechanismAId:
+            anchorMechanism.id,
+
+          mechanismBId:
+            rule.targetMechanismId,
+
+          profileA,
+
+          profileB,
+
+          opportunityScore:
+            assessment.opportunityScore,
+
+          scoreBreakdown:
+            assessment.scoreBreakdown,
+
+          risk:
+            assessment.risk,
+
+          riskRationale:
+            assessment.riskRationale,
+
+          evidenceLevel:
+            assessment.evidenceLevel,
 
           triggerSignal,
 
@@ -2940,14 +3151,7 @@ async function buildSignalHypotheses({
             "Signal-driven",
 
           score:
-            signal.highValueScore *
-              3 +
-            (samePattern
-              ? samePattern.trialCount
-              : 0) +
-            (candidateDrug
-              ?.activeTrials ||
-              0),
+            assessment.opportunityScore,
         };
 
         if (
