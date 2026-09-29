@@ -593,3 +593,124 @@ a:hover {
   background: #f8faff;
   border: 1px solid var(--line);
 }
+
+
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.candidateTable {
+  min-width: 1120px;
+  table-layout: fixed;
+}
+
+.candidateTable th:nth-child(1),
+.candidateTable td:nth-child(1) {
+  width: 18%;
+}
+
+.candidateTable th:nth-child(2),
+.candidateTable td:nth-child(2) {
+  width: 10%;
+}
+
+.candidateTable th:nth-child(3),
+.candidateTable td:nth-child(3) {
+  width: 8%;
+}
+
+.candidateTable th:nth-child(4),
+.candidateTable td:nth-child(4) {
+  width: 15%;
+}
+
+.candidateTable th:nth-child(5),
+.candidateTable td:nth-child(5) {
+  width: 11%;
+}
+
+.candidateTable th:nth-child(6),
+.candidateTable td:nth-child(6) {
+  width: 23%;
+}
+
+.candidateTable th:nth-child(7),
+.candidateTable td:nth-child(7) {
+  width: 15%;
+}
+
+.candidateNameCell,
+.compactReason,
+.candidateTable td {
+  overflow-wrap: anywhere;
+}
+
+.candidateSource {
+  margin-top: 5px;
+}
+
+.compactTimeWindow {
+  min-width: 0;
+}
+
+.evidenceRiskStack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.candidateDetails summary {
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.candidateDetails[open] {
+  min-width: 430px;
+}
+
+.candidateDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcff;
+}
+
+.candidateDetailGrid .profileBox {
+  min-width: 0;
+  margin-top: 7px;
+}
+
+@media (max-width: 1200px) {
+  .candidateTable {
+    min-width: 980px;
+  }
+
+  .candidateDetailGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  main {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .candidateTable {
+    min-width: 900px;
+  }
+
+  .metric,
+  .card {
+    padding: 13px;
+  }
+}
