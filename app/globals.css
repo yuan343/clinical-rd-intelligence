@@ -384,3 +384,120 @@ a:hover {
 .inlineButton:hover {
   text-decoration: underline;
 }
+
+
+.metricInteractive {
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.metricInteractive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(40, 67, 130, 0.08);
+  border-color: #b9c7ee;
+}
+
+.metricHint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.textLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--blue);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.textLink:hover {
+  text-decoration: underline;
+}
+
+.filterPanel {
+  margin-bottom: 14px;
+}
+
+.filterHeader,
+.sectionTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: minmax(250px, 2fr) repeat(5, minmax(135px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filterField span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.filterField input,
+.filterField select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--text);
+}
+
+.secondaryButton {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  border-color: #b9c7ee;
+  background: #f8faff;
+}
+
+@media (max-width: 1200px) {
+  .filterGrid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
+  .filterKeyword {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 760px) {
+  .filterGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .filterKeyword {
+    grid-column: auto;
+  }
+
+  .filterHeader,
+  .sectionTitleRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
