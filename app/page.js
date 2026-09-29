@@ -490,6 +490,7 @@ function RealtimeSignals({ data, onOpenPotential, onOpenOngoing }) {
 function PotentialCombinations({ data }) {
   const signalHypotheses = data.signalHypotheses || [];
   const patternCandidates = data.potentialCombinations || [];
+  const moleculeDesignCandidates = data.intramolecularHypotheses || [];
 
   const [keyword, setKeyword] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
@@ -501,6 +502,8 @@ function PotentialCombinations({ data }) {
   const [profileFilter, setProfileFilter] = useState("");
   const [rationaleFilter, setRationaleFilter] = useState("");
   const [developmentFilter, setDevelopmentFilter] = useState("all");
+  const [strategyFilter, setStrategyFilter] = useState("all");
+  const [evidenceTierFilter, setEvidenceTierFilter] = useState("all");
 
   const allCandidates = [
     ...signalHypotheses.map((x) => ({
@@ -510,6 +513,10 @@ function PotentialCombinations({ data }) {
     ...patternCandidates.map((x) => ({
       ...x,
       source: "Pattern transfer",
+    })),
+    ...moleculeDesignCandidates.map((x) => ({
+      ...x,
+      source: "Molecule design",
     })),
   ]
     .sort(
@@ -599,6 +606,20 @@ function PotentialCombinations({ data }) {
     if (
       riskFilter !== "all" &&
       x.risk !== riskFilter
+    ) {
+      return false;
+    }
+
+    if (
+      strategyFilter !== "all" &&
+      x.combinationStrategy !== strategyFilter
+    ) {
+      return false;
+    }
+
+    if (
+      evidenceTierFilter !== "all" &&
+      x.evidenceTier?.code !== evidenceTierFilter
     ) {
       return false;
     }
@@ -698,6 +719,8 @@ function PotentialCombinations({ data }) {
     setProfileFilter("");
     setRationaleFilter("");
     setDevelopmentFilter("all");
+    setStrategyFilter("all");
+    setEvidenceTierFilter("all");
   }
 
   return (
@@ -710,7 +733,7 @@ function PotentialCombinations({ data }) {
         }}
       >
         <div style={{ fontSize: 15, fontWeight: 700 }}>
-          实时问题 → 机制推导 → 具体分子 → 竞争时间窗口 → 100分机会评分
+          实时问题 → 机制推导 → 药物联合 / 分子内组合 → 竞争时间窗口 → 100分机会评分
         </div>
 
         <div
@@ -720,8 +743,8 @@ function PotentialCombinations({ data }) {
             lineHeight: 1.6,
           }}
         >
-          前车之鉴只用于验证，不再决定候选生成。系统优先回答“现在还能不能做、和哪个具体分子做”；
-          风险单独展示，高风险不等于没有科学价值。
+          前车之鉴只用于验证，不再决定候选生成。除了A+B药物联合，系统现在也会识别双靶点ADC、
+          双Payload ADC和新型偶联/递送升级；设计级候选会明确标注为假设，不把推演包装成已验证事实。
         </div>
       </section>
 
@@ -739,6 +762,10 @@ function PotentialCombinations({ data }) {
         <Metric
           n={candidates.filter((x) => (x.timeWindow || 0) >= 12).length}
           l="竞争窗口较好"
+        />
+        <Metric
+          n={candidates.filter((x) => x.source === "Molecule design").length}
+          l="分子内组合"
         />
       </div>
 
@@ -779,6 +806,36 @@ function PotentialCombinations({ data }) {
               <option value="all">全部</option>
               <option value="Signal-driven">最新信号推导</option>
               <option value="Pattern transfer">同类联合迁移</option>
+              <option value="Molecule design">分子内组合</option>
+            </select>
+          </label>
+
+          <label className="filterField">
+            <span>组合策略</span>
+            <select
+              value={strategyFilter}
+              onChange={(e) => setStrategyFilter(e.target.value)}
+            >
+              <option value="all">全部</option>
+              <option value="药物间联合">药物间联合</option>
+              <option value="靶向联合">靶向联合</option>
+              <option value="双靶点设计">双靶点设计</option>
+              <option value="双Payload设计">双Payload设计</option>
+              <option value="Modality升级">Modality升级</option>
+            </select>
+          </label>
+
+          <label className="filterField">
+            <span>Evidence Level</span>
+            <select
+              value={evidenceTierFilter}
+              onChange={(e) => setEvidenceTierFilter(e.target.value)}
+            >
+              <option value="all">全部</option>
+              <option value="L1">L1｜III期 / 注册性验证</option>
+              <option value="L2">L2｜已有临床探索</option>
+              <option value="L3">L3｜同机制支持</option>
+              <option value="L4">L4｜机制推演</option>
             </select>
           </label>
 
@@ -853,11 +910,12 @@ function PotentialCombinations({ data }) {
           <table>
             <thead>
               <tr>
-                <th>候选联合</th>
+                <th>候选联合 / 设计</th>
                 <th>来源</th>
+                <th>组合策略</th>
                 <th>机会分</th>
                 <th>时间窗口</th>
-                <th>前车之鉴</th>
+                <th>Evidence Level</th>
                 <th>风险</th>
                 <th>药物画像</th>
                 <th>为什么可能成立</th>
@@ -883,6 +941,22 @@ function PotentialCombinations({ data }) {
                     <option value="all">全部</option>
                     <option value="Signal-driven">最新信号</option>
                     <option value="Pattern transfer">同类迁移</option>
+                    <option value="Molecule design">分子内组合</option>
+                  </select>
+                </th>
+
+                <th>
+                  <select
+                    className="columnFilterSelect"
+                    value={strategyFilter}
+                    onChange={(e) => setStrategyFilter(e.target.value)}
+                  >
+                    <option value="all">全部</option>
+                    <option value="药物间联合">药物间联合</option>
+                    <option value="靶向联合">靶向联合</option>
+                    <option value="双靶点设计">双靶点</option>
+                    <option value="双Payload设计">双Payload</option>
+                    <option value="Modality升级">Modality升级</option>
                   </select>
                 </th>
 
@@ -915,12 +989,14 @@ function PotentialCombinations({ data }) {
                 <th>
                   <select
                     className="columnFilterSelect"
-                    value={precedentFilter}
-                    onChange={(e) => setPrecedentFilter(e.target.value)}
+                    value={evidenceTierFilter}
+                    onChange={(e) => setEvidenceTierFilter(e.target.value)}
                   >
                     <option value="all">全部</option>
-                    <option value="none">暂无直接先例</option>
-                    <option value="has">已有同类先例</option>
+                    <option value="L1">L1</option>
+                    <option value="L2">L2</option>
+                    <option value="L3">L3</option>
+                    <option value="L4">L4</option>
                   </select>
                 </th>
 
@@ -973,7 +1049,7 @@ function PotentialCombinations({ data }) {
               {candidates.map((x, i) => (
                 <tr key={x.a + "__" + x.b + "__" + i}>
                   <td>
-                    <b>{x.a} + {x.b}</b>
+                    <b>{x.displayName || (x.a + " + " + x.b)}</b>
                     <div className="small">
                       {x.mechanismA} + {x.mechanismB}
                     </div>
@@ -984,7 +1060,15 @@ function PotentialCombinations({ data }) {
                       ? "最新信号推导"
                       : x.source === "Pattern transfer"
                       ? "同类联合迁移"
+                      : x.source === "Molecule design"
+                      ? "分子内组合"
                       : "机制推导"}
+                  </td>
+
+                  <td>
+                    <span className="strategyBadge">
+                      {x.combinationStrategy || "药物间联合"}
+                    </span>
                   </td>
 
                   <td>
@@ -1038,9 +1122,14 @@ function PotentialCombinations({ data }) {
                   </td>
 
                   <td>
-                    <b>{x.precedentLevel || "待核对"}</b>
+                    <span className="evidenceTierBadge">
+                      {x.evidenceTier?.code || "-"}
+                    </span>
                     <div className="small">
-                      {x.evidenceLevel || x.evidenceStrength || "待评估"}
+                      {x.evidenceTier?.label || x.evidenceLevel || "待评估"}
+                    </div>
+                    <div className="small" style={{ marginTop: 4 }}>
+                      {x.precedentLevel || "待核对"}
                     </div>
                   </td>
 
@@ -1060,6 +1149,21 @@ function PotentialCombinations({ data }) {
                   <td>
                     <div><b>问题：</b>{x.problem || "-"}</div>
                     <div><b>互补：</b>{x.compensation || "-"}</div>
+                    {(x.predictionBasis || []).length > 0 && (
+                      <div className="predictionBasisBox">
+                        <b>预测依据：</b>
+                        <ul className="compactList">
+                          {(x.predictionBasis || []).map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {x.designNextStep && (
+                      <div className="small">
+                        <b>下一步：</b>{x.designNextStep}
+                      </div>
+                    )}
                     <div className="small">{x.rationale || "-"}</div>
                   </td>
 
