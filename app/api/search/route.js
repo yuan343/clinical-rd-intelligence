@@ -598,22 +598,22 @@ function mechanismPairKey(a, b) {
 }
 
 const COMPLEMENTARITY_SCORE = {
-  ADC__PD1: 18,
-  ADC__PDL1: 18,
-  ADC__PD1_VEGF_BISPECIFIC: 20,
-  ADC__PDL1_VEGF_BISPECIFIC: 20,
-  ADC__VEGF: 15,
-  ADC__PARP: 17,
-  ARPI__RPT: 16,
-  PARP__RPT: 18,
-  PD1__RPT: 16,
-  PDL1__RPT: 16,
-  PD1__VEGF: 18,
-  PDL1__VEGF: 18,
-  CTLA4__PD1: 17,
-  CTLA4__PDL1: 17,
-  BCL2__CD20: 18,
-  BTK__CD20: 17,
+  ADC__PD1: 23,
+  ADC__PDL1: 23,
+  ADC__PD1_VEGF_BISPECIFIC: 25,
+  ADC__PDL1_VEGF_BISPECIFIC: 25,
+  ADC__VEGF: 20,
+  ADC__PARP: 24,
+  ARPI__RPT: 22,
+  PARP__RPT: 24,
+  PD1__RPT: 21,
+  PDL1__RPT: 21,
+  PD1__VEGF: 23,
+  PDL1__VEGF: 23,
+  CTLA4__PD1: 22,
+  CTLA4__PDL1: 22,
+  BCL2__CD20: 23,
+  BTK__CD20: 22,
 };
 
 function assessSafety(profileA, profileB, mechanismAId, mechanismBId) {
@@ -670,7 +670,7 @@ function scoreCombination({
       : indicationOverlap.length === 1
       ? 17
       : candidateDrug
-      ? 10
+      ? 11
       : 8;
 
   const mechanismComplementarity =
@@ -678,66 +678,87 @@ function scoreCombination({
     (mechanismAId !== mechanismBId &&
     mechanismAId !== "UNKNOWN" &&
     mechanismBId !== "UNKNOWN"
-      ? 12
-      : 5);
+      ? 17
+      : 8);
 
-  let payloadRationale = 5;
-  if (pair === "ADC__PARP" || pair === "PARP__RPT") payloadRationale = 15;
-  else if (
+  let payloadRationale = 6;
+
+  if (pair === "ADC__PARP" || pair === "PARP__RPT") {
+    payloadRationale = 15;
+  } else if (
     pair === "ADC__PD1" ||
     pair === "ADC__PDL1" ||
     pair === "ADC__PD1_VEGF_BISPECIFIC" ||
     pair === "ADC__PDL1_VEGF_BISPECIFIC"
-  ) payloadRationale = 12;
-  else if (pair.includes("ADC") || pair.includes("RPT")) payloadRationale = 9;
-
-  let resistanceComplementarity =
-    mechanismAId !== mechanismBId &&
-    mechanismAId !== "UNKNOWN" &&
-    mechanismBId !== "UNKNOWN"
-      ? 8
-      : 4;
-
-  if (pair === "ADC__PARP" || pair === "PARP__RPT") {
-    resistanceComplementarity = 10;
-  }
-
-  let tmeImmune = 3;
-  if (
-    [mechanismAId, mechanismBId].some((x) =>
-      ["PD1", "PDL1", "CTLA4", "PD1_VEGF_BISPECIFIC", "PDL1_VEGF_BISPECIFIC"].includes(x)
-    )
   ) {
-    tmeImmune = 8;
+    payloadRationale = 13;
+  } else if (pair.includes("ADC") || pair.includes("RPT")) {
+    payloadRationale = 10;
   }
 
+  let unmetNeedResolution = 10;
+
   if (
+    pair === "ADC__PARP" ||
+    pair === "PARP__RPT" ||
     pair === "ADC__PD1_VEGF_BISPECIFIC" ||
     pair === "ADC__PDL1_VEGF_BISPECIFIC"
   ) {
-    tmeImmune = 10;
+    unmetNeedResolution = 15;
+  } else if (
+    mechanismAId !== mechanismBId &&
+    mechanismAId !== "UNKNOWN" &&
+    mechanismBId !== "UNKNOWN"
+  ) {
+    unmetNeedResolution = 12;
   }
 
-  const trialCount = samePattern?.trialCount || 0;
-  const evidence =
-    trialCount >= 5
+  const patternTrials = samePattern?.trialCount || 0;
+
+  const timeWindow =
+    patternTrials === 0
       ? 15
-      : trialCount >= 2
-      ? 12
-      : trialCount === 1
-      ? 9
-      : candidateDrug?.activeTrials >= 3
+      : patternTrials <= 1
+      ? 13
+      : patternTrials <= 3
+      ? 10
+      : patternTrials <= 7
       ? 6
-      : 4;
+      : 3;
+
+  const moleculeMaturity =
+    candidateDrug?.activeTrials >= 5
+      ? 10
+      : candidateDrug?.activeTrials >= 2
+      ? 9
+      : candidateDrug?.activeTrials >= 1
+      ? 8
+      : candidateDrug?.source === "catalog"
+      ? 7
+      : 6;
 
   const evidenceLevel =
-    trialCount >= 5
-      ? "同机制临床证据较多"
-      : trialCount >= 2
-      ? "已有同机制临床验证"
-      : trialCount === 1
-      ? "早期临床线索"
-      : "机制假设";
+    patternTrials >= 5
+      ? "同类联合临床证据较多"
+      : patternTrials >= 2
+      ? "已有同类联合临床验证"
+      : patternTrials === 1
+      ? "存在早期同类临床线索"
+      : "主要为机制推导";
+
+  const precedentLevel =
+    patternTrials > 0
+      ? "已有同类前车之鉴"
+      : "暂无直接前车之鉴";
+
+  const timeWindowLabel =
+    timeWindow >= 13
+      ? "窗口较好"
+      : timeWindow >= 9
+      ? "仍有窗口"
+      : timeWindow >= 5
+      ? "开始拥挤"
+      : "窗口偏晚";
 
   const safety = assessSafety(
     profileA,
@@ -750,10 +771,9 @@ function scoreCombination({
     diseaseFit,
     mechanismComplementarity,
     payloadRationale,
-    resistanceComplementarity,
-    tmeImmune,
-    evidence,
-    safetyControllability: safety.safetyScore,
+    unmetNeedResolution,
+    timeWindow,
+    moleculeMaturity,
   };
 
   return {
@@ -765,6 +785,9 @@ function scoreCombination({
     risk: safety.risk,
     riskRationale: safety.rationale,
     evidenceLevel,
+    precedentLevel,
+    timeWindow,
+    timeWindowLabel,
   };
 }
 
@@ -2306,6 +2329,15 @@ async function buildPotentialCombinations(
           evidenceLevel:
             assessment.evidenceLevel,
 
+          precedentLevel:
+            assessment.precedentLevel,
+
+          timeWindow:
+            assessment.timeWindow,
+
+          timeWindowLabel:
+            assessment.timeWindowLabel,
+
           problem:
             pattern.problem,
 
@@ -2799,8 +2831,7 @@ function assessMarketWindow({
     patternTrials >= 8
   ) {
     return (
-      "同机制联合已有较多临床开发，时间窗口可能偏紧；" +
-      "需要重点寻找适应症、biomarker、分子差异或安全性差异化。"
+      "同类联合已较拥挤，时间成本明显增加；若没有适应症、biomarker、分子或安全性差异化，进入窗口偏晚。"
     );
   }
 
@@ -2831,29 +2862,91 @@ function assessMarketWindow({
    找同机制候选分子
    ============================================================ */
 
+const PARTNER_ASSET_CATALOG = {
+  PD1: ["pembrolizumab", "nivolumab", "tislelizumab", "sintilimab"],
+  PDL1: ["atezolizumab", "durvalumab"],
+  VEGF: ["bevacizumab", "ramucirumab", "lenvatinib"],
+  CTLA4: ["ipilimumab", "tremelimumab"],
+  PARP: ["olaparib", "niraparib", "talazoparib"],
+  ARPI: ["enzalutamide", "abiraterone", "darolutamide"],
+  PDL1_VEGF_BISPECIFIC: ["BNT327", "IMM2510", "PM8002"],
+  PD1_VEGF_BISPECIFIC: ["ivonescimab"],
+  CHEMOTHERAPY: ["carboplatin", "pemetrexed", "paclitaxel"],
+  ADC: [
+    "datopotamab deruxtecan",
+    "trastuzumab deruxtecan",
+    "sacituzumab tirumotecan",
+    "BNT324",
+  ],
+  RPT: ["177Lu-PSMA-617", "225Ac-PSMA"],
+};
+
+function isGenericInterventionName(name = "") {
+  const x = norm(name);
+
+  return (
+    !x ||
+    x.includes("antibodies") ||
+    x.includes("antibody class") ||
+    x.includes("inhibitors") ||
+    x === "chemotherapy" ||
+    x.includes("standard therapy") ||
+    x.includes("investigator choice") ||
+    x.includes("placebo")
+  );
+}
+
 function chooseCandidateDrug(
   mechanismIndex,
   mechanismId,
   anchorDrug
 ) {
-  const candidates =
-    mechanismIndex.get(
-      mechanismId
-    ) || [];
+  const liveCandidates =
+    (mechanismIndex.get(mechanismId) || [])
+      .filter(
+        (x) =>
+          norm(x.drug) !== norm(anchorDrug) &&
+          !isGenericInterventionName(x.drug)
+      )
+      .sort(
+        (a, b) =>
+          b.activeTrials - a.activeTrials ||
+          a.riskTrials - b.riskTrials
+      );
 
-  return candidates
-    .filter(
-      (x) =>
-        norm(x.drug) !==
-        norm(anchorDrug)
-    )
-    .sort(
-      (a, b) =>
-        b.activeTrials -
-          a.activeTrials ||
-        a.riskTrials -
-          b.riskTrials
-    )[0];
+  if (liveCandidates.length) {
+    return {
+      ...liveCandidates[0],
+      source: "live",
+    };
+  }
+
+  const fallback =
+    (PARTNER_ASSET_CATALOG[mechanismId] || [])
+      .find(
+        (name) =>
+          norm(name) !== norm(anchorDrug)
+      );
+
+  if (!fallback) {
+    return null;
+  }
+
+  const mechanism =
+    MECHANISM_RULES.find(
+      (x) => x.id === mechanismId
+    );
+
+  return {
+    drug: fallback,
+    mechanismId,
+    mechanism: mechanism?.label || mechanismId,
+    activeTrials: 0,
+    riskTrials: 0,
+    indications: [],
+    nctIds: [],
+    source: "catalog",
+  };
 }
 
 /* ============================================================
@@ -2962,14 +3055,15 @@ async function buildSignalHypotheses({
           恰好没有B，就完全错过一个潜在方向。
         */
 
+        if (!candidateDrug) {
+          continue;
+        }
+
         const b =
-          candidateDrug
-            ?.drug ||
-          `${targetRule.label}类资产`;
+          candidateDrug.drug;
 
         const bMechanism =
-          candidateDrug
-            ?.mechanism ||
+          candidateDrug.mechanism ||
           targetRule.label;
 
         const key =
@@ -3098,6 +3192,15 @@ async function buildSignalHypotheses({
           evidenceLevel:
             assessment.evidenceLevel,
 
+          precedentLevel:
+            assessment.precedentLevel,
+
+          timeWindow:
+            assessment.timeWindow,
+
+          timeWindowLabel:
+            assessment.timeWindowLabel,
+
           triggerSignal,
 
           triggerProject:
@@ -3194,25 +3297,6 @@ async function buildSignalHypotheses({
     await Promise.all(
       initial.map(
         async (x) => {
-          const isTargetLevel =
-            x.b.endsWith(
-              "类资产"
-            );
-
-          if (
-            isTargetLevel
-          ) {
-            return {
-              ...x,
-
-              developmentStatus:
-                "靶点级联合假设，尚未指定具体B资产",
-
-              verification:
-                "待筛选具体资产后进行ClinicalTrials.gov核对",
-            };
-          }
-
           const check =
             await verifyExactCombination(
               x.a,
