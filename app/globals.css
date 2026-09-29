@@ -563,3 +563,33 @@ a:hover {
   margin-top: 5px;
   color: #69758a;
 }
+
+
+.strategyBadge,
+.evidenceTierBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.strategyBadge {
+  background: #f2edff;
+  color: #6d4bc4;
+}
+
+.evidenceTierBadge {
+  background: #eef4ff;
+  color: #3157e8;
+  margin-bottom: 5px;
+}
+
+.predictionBasisBox {
+  margin: 7px 0;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: #f8faff;
+  border: 1px solid var(--line);
+}
