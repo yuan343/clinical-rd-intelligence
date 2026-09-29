@@ -404,7 +404,7 @@ function PotentialCombinations({ data }) {
         }}
       >
         <div style={{ fontSize: 15, fontWeight: 700 }}>
-          候选联合 → 100分机会评分 → 独立风险标签 → 证据等级 → 可解释理由
+          实时问题 → 机制推导 → 具体分子 → 时间窗口 → 100分机会评分
         </div>
 
         <div
@@ -414,8 +414,8 @@ function PotentialCombinations({ data }) {
             lineHeight: 1.6,
           }}
         >
-          这里不等同于“推荐立项”。评分用于筛选值得进一步验证的组合；
-          Risk 独立展示，高风险不等于没有科学价值。
+          前车之鉴只用于验证，不再决定候选生成。系统优先回答“现在还能不能做、和哪个具体分子做”；
+          风险单独展示，高风险不等于没有科学价值。
         </div>
       </section>
 
@@ -430,8 +430,8 @@ function PotentialCombinations({ data }) {
           l="高风险"
         />
         <Metric
-          n={candidates.filter((x) => x.evidenceLevel?.includes("临床")).length}
-          l="已有临床级证据"
+          n={candidates.filter((x) => (x.timeWindow || 0) >= 12).length}
+          l="时间窗口较好"
         />
       </div>
 
@@ -439,8 +439,9 @@ function PotentialCombinations({ data }) {
         <h2>预计可以组合｜候选池</h2>
 
         <div className="note">
-          100分构成：靶点/瘤种20 + 机制互补20 + Payload逻辑15 +
-          耐药互补10 + TME/免疫10 + 证据15 + 安全可控10。
+          100分构成：疾病/人群20 + 机制互补25 + Payload/杀伤协同15 +
+          解决耐药/未满足需求15 + 时间窗口15 + 分子成熟度10。
+          安全性和前车之鉴单独显示，不再混入机会分。
         </div>
 
         {candidates.length ? (
@@ -450,8 +451,9 @@ function PotentialCombinations({ data }) {
                 <th>候选联合</th>
                 <th>来源</th>
                 <th>机会分</th>
+                <th>时间窗口</th>
+                <th>前车之鉴</th>
                 <th>风险</th>
-                <th>证据等级</th>
                 <th>药物画像</th>
                 <th>为什么可能成立</th>
                 <th>现有开发核对</th>
@@ -472,7 +474,7 @@ function PotentialCombinations({ data }) {
                     {x.source === "Signal-driven"
                       ? "最新信号推导"
                       : x.source === "Pattern transfer"
-                      ? "同类联合验证"
+                      ? "同类联合迁移"
                       : "机制推导"}
                   </td>
 
@@ -483,15 +485,31 @@ function PotentialCombinations({ data }) {
 
                     {x.scoreBreakdown && (
                       <div className="small scoreDetail">
-                        瘤种 {x.scoreBreakdown.diseaseFit} ·
+                        疾病 {x.scoreBreakdown.diseaseFit} ·
                         机制 {x.scoreBreakdown.mechanismComplementarity} ·
                         Payload {x.scoreBreakdown.payloadRationale} ·
-                        耐药 {x.scoreBreakdown.resistanceComplementarity} ·
-                        TME {x.scoreBreakdown.tmeImmune} ·
-                        证据 {x.scoreBreakdown.evidence} ·
-                        安全 {x.scoreBreakdown.safetyControllability}
+                        未满足需求 {x.scoreBreakdown.unmetNeedResolution} ·
+                        时间 {x.scoreBreakdown.timeWindow} ·
+                        分子成熟度 {x.scoreBreakdown.moleculeMaturity}
                       </div>
                     )}
+                  </td>
+
+                  <td>
+                    <b>{x.timeWindowLabel || "待评估"}</b>
+                    <div className="small">
+                      时间窗口 {x.timeWindow ?? "-"} / 15
+                    </div>
+                    {x.marketWindow && (
+                      <div className="small">{x.marketWindow}</div>
+                    )}
+                  </td>
+
+                  <td>
+                    <b>{x.precedentLevel || "待核对"}</b>
+                    <div className="small">
+                      {x.evidenceLevel || x.evidenceStrength || "待评估"}
+                    </div>
                   </td>
 
                   <td>
@@ -500,8 +518,6 @@ function PotentialCombinations({ data }) {
                     </span>
                     <div className="small">{x.riskRationale || "-"}</div>
                   </td>
-
-                  <td>{x.evidenceLevel || x.evidenceStrength || "待评估"}</td>
 
                   <td>
                     <DrugProfile profile={x.profileA} />
