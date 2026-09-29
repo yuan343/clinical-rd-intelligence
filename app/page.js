@@ -138,7 +138,7 @@ export default function Home() {
 }
 
 function pageTitle(tab) {
-  if (tab === "potential") return "预计可以组合｜Combination Hypothesis";
+  if (tab === "potential") return "预计可以组合｜联合机制假设";
   if (tab === "ongoing") return "On Going｜在研联合";
   if (tab === "failures") return "终止 / 暂停项目";
   if (tab === "trials") return "临床项目";
@@ -427,7 +427,7 @@ function PotentialCombinations({ data }) {
         />
         <Metric
           n={candidates.filter((x) => x.risk === "High").length}
-          l="High Risk"
+          l="高风险"
         />
         <Metric
           n={candidates.filter((x) => x.evidenceLevel?.includes("临床")).length}
@@ -450,8 +450,8 @@ function PotentialCombinations({ data }) {
                 <th>候选联合</th>
                 <th>来源</th>
                 <th>机会分</th>
-                <th>Risk</th>
-                <th>Evidence</th>
+                <th>风险</th>
+                <th>证据等级</th>
                 <th>药物画像</th>
                 <th>为什么可能成立</th>
                 <th>现有开发核对</th>
@@ -470,8 +470,10 @@ function PotentialCombinations({ data }) {
 
                   <td>
                     {x.source === "Signal-driven"
-                      ? "实时 Signal"
-                      : "On Going Pattern"}
+                      ? "最新信号推导"
+                      : x.source === "Pattern transfer"
+                      ? "同类联合验证"
+                      : "机制推导"}
                   </td>
 
                   <td>
@@ -494,7 +496,7 @@ function PotentialCombinations({ data }) {
 
                   <td>
                     <span className={"riskBadge " + riskClass(x.risk)}>
-                      {x.risk || "待评估"}
+                      {x.risk === "High" ? "高风险" : x.risk === "Medium" ? "中风险" : x.risk === "Low" ? "低风险" : "待评估"}
                     </span>
                     <div className="small">{x.riskRationale || "-"}</div>
                   </td>
