@@ -117,6 +117,14 @@ export default function Home() {
               <RealtimeSignals
                 data={data}
                 onOpenPotential={() => setTab("potential")}
+                onOpenOngoing={() => {
+                  setTab("ongoing");
+                  setTimeout(() => {
+                    document
+                      .getElementById("ongoing-patterns")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 0);
+                }}
               />
             )}
 
@@ -157,7 +165,7 @@ function pageTitle(tab) {
    实时机会
    ========================================================= */
 
-function RealtimeSignals({ data, onOpenPotential }) {
+function RealtimeSignals({ data, onOpenPotential, onOpenOngoing }) {
   const signalHypotheses = data.signalHypotheses || [];
 
   return (
@@ -199,11 +207,19 @@ function RealtimeSignals({ data, onOpenPotential }) {
         <Metric
           n={signalHypotheses.length}
           l="最新信号推导候选"
+          onClick={() =>
+            document
+              .getElementById("signal-combination-preview")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+          hint="点击查看"
         />
 
         <Metric
           n={data.combinationPatterns?.length || 0}
           l="可参考同类 Pattern"
+          onClick={onOpenOngoing}
+          hint="点击进入 On Going"
         />
       </div>
 
@@ -272,7 +288,11 @@ function RealtimeSignals({ data, onOpenPotential }) {
         )}
       </section>
 
-      <section className="card section">
+      <section
+        id="signal-combination-preview"
+        className="card section"
+        style={{ scrollMarginTop: 18 }}
+      >
         <div
           style={{
             display: "flex",
@@ -307,6 +327,7 @@ function RealtimeSignals({ data, onOpenPotential }) {
                 <th>时间窗口</th>
                 <th>前车之鉴</th>
                 <th>触发原因</th>
+                <th>详情</th>
               </tr>
             </thead>
 
@@ -342,6 +363,16 @@ function RealtimeSignals({ data, onOpenPotential }) {
 
                   <td>
                     {x.triggerSignal || x.problem || "-"}
+                  </td>
+
+                  <td>
+                    <button
+                      type="button"
+                      className="textLink"
+                      onClick={onOpenPotential}
+                    >
+                      查看完整分析 →
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -455,7 +486,14 @@ function PotentialCombinations({ data }) {
   const signalHypotheses = data.signalHypotheses || [];
   const patternCandidates = data.potentialCombinations || [];
 
-  const candidates = [
+  const [keyword, setKeyword] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [scoreFilter, setScoreFilter] = useState("all");
+  const [windowFilter, setWindowFilter] = useState("all");
+  const [precedentFilter, setPrecedentFilter] = useState("all");
+  const [riskFilter, setRiskFilter] = useState("all");
+
+  const allCandidates = [
     ...signalHypotheses.map((x) => ({
       ...x,
       source: "Signal-driven",
@@ -470,7 +508,103 @@ function PotentialCombinations({ data }) {
         (b.opportunityScore || b.score || 0) -
         (a.opportunityScore || a.score || 0)
     )
-    .slice(0, 16);
+    .slice(0, 32);
+
+  const candidates = allCandidates.filter((x) => {
+    const text = [
+      x.a,
+      x.b,
+      x.mechanismA,
+      x.mechanismB,
+      x.problem,
+      x.compensation,
+      x.rationale,
+      x.profileA?.target,
+      x.profileB?.target,
+      x.profileA?.payload,
+      x.profileB?.payload,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const kw = keyword.trim().toLowerCase();
+
+    if (kw && !text.includes(kw)) {
+      return false;
+    }
+
+    if (
+      sourceFilter !== "all" &&
+      x.source !== sourceFilter
+    ) {
+      return false;
+    }
+
+    const score = x.opportunityScore || x.score || 0;
+
+    if (
+      scoreFilter !== "all" &&
+      score < Number(scoreFilter)
+    ) {
+      return false;
+    }
+
+    const timeWindow = x.timeWindow || 0;
+
+    if (
+      windowFilter === "good" &&
+      timeWindow < 13
+    ) {
+      return false;
+    }
+
+    if (
+      windowFilter === "open" &&
+      (timeWindow < 9 || timeWindow >= 13)
+    ) {
+      return false;
+    }
+
+    if (
+      windowFilter === "crowded" &&
+      timeWindow > 8
+    ) {
+      return false;
+    }
+
+    if (
+      precedentFilter === "none" &&
+      x.precedentLevel !== "暂无直接前车之鉴"
+    ) {
+      return false;
+    }
+
+    if (
+      precedentFilter === "has" &&
+      x.precedentLevel === "暂无直接前车之鉴"
+    ) {
+      return false;
+    }
+
+    if (
+      riskFilter !== "all" &&
+      x.risk !== riskFilter
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
+  function clearFilters() {
+    setKeyword("");
+    setSourceFilter("all");
+    setScoreFilter("all");
+    setWindowFilter("all");
+    setPrecedentFilter("all");
+    setRiskFilter("all");
+  }
 
   return (
     <>
@@ -498,7 +632,8 @@ function PotentialCombinations({ data }) {
       </section>
 
       <div className="metrics">
-        <Metric n={candidates.length} l="当前候选联合" />
+        <Metric n={allCandidates.length} l="全部候选联合" />
+        <Metric n={candidates.length} l="当前筛选结果" />
         <Metric
           n={candidates.filter((x) => (x.opportunityScore || 0) >= 70).length}
           l="≥70分候选"
@@ -513,8 +648,106 @@ function PotentialCombinations({ data }) {
         />
       </div>
 
+      <section className="card section filterPanel">
+        <div className="filterHeader">
+          <div>
+            <h2 style={{ margin: 0 }}>筛选候选</h2>
+            <div className="small">
+              可以组合使用，例如：暂无前车之鉴 + 时间窗口较好 + ≥80分。
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="secondaryButton"
+            onClick={clearFilters}
+          >
+            清空筛选
+          </button>
+        </div>
+
+        <div className="filterGrid">
+          <label className="filterField filterKeyword">
+            <span>分子 / 靶点 / 机制</span>
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="如 ADC、PARP、BNT327、HER2"
+            />
+          </label>
+
+          <label className="filterField">
+            <span>来源</span>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+            >
+              <option value="all">全部</option>
+              <option value="Signal-driven">最新信号推导</option>
+              <option value="Pattern transfer">同类联合迁移</option>
+            </select>
+          </label>
+
+          <label className="filterField">
+            <span>最低机会分</span>
+            <select
+              value={scoreFilter}
+              onChange={(e) => setScoreFilter(e.target.value)}
+            >
+              <option value="all">不限</option>
+              <option value="70">≥70</option>
+              <option value="80">≥80</option>
+              <option value="90">≥90</option>
+            </select>
+          </label>
+
+          <label className="filterField">
+            <span>时间窗口</span>
+            <select
+              value={windowFilter}
+              onChange={(e) => setWindowFilter(e.target.value)}
+            >
+              <option value="all">全部</option>
+              <option value="good">窗口较好</option>
+              <option value="open">仍有窗口</option>
+              <option value="crowded">开始拥挤 / 偏晚</option>
+            </select>
+          </label>
+
+          <label className="filterField">
+            <span>前车之鉴</span>
+            <select
+              value={precedentFilter}
+              onChange={(e) => setPrecedentFilter(e.target.value)}
+            >
+              <option value="all">全部</option>
+              <option value="none">暂无直接前车之鉴</option>
+              <option value="has">已有同类前车之鉴</option>
+            </select>
+          </label>
+
+          <label className="filterField">
+            <span>风险</span>
+            <select
+              value={riskFilter}
+              onChange={(e) => setRiskFilter(e.target.value)}
+            >
+              <option value="all">全部</option>
+              <option value="Low">低风险</option>
+              <option value="Medium">中风险</option>
+              <option value="High">高风险</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
       <section className="card section">
-        <h2>预计可以组合｜候选池</h2>
+        <div className="sectionTitleRow">
+          <h2 style={{ margin: 0 }}>预计可以组合｜候选池</h2>
+          <div className="muted">
+            显示 {candidates.length} / {allCandidates.length}
+          </div>
+        </div>
 
         <div className="note">
           100分构成：疾病/人群20 + 机制互补25 + Payload/杀伤协同15 +
@@ -621,7 +854,7 @@ function PotentialCombinations({ data }) {
           </table>
         ) : (
           <div className="muted">
-            当前检索尚未形成可解释的潜在联合候选。
+            当前筛选条件下没有候选。可以放宽机会分、时间窗口或前车之鉴条件。
           </div>
         )}
       </section>
@@ -772,7 +1005,11 @@ function OnGoing({ data }) {
         )}
       </section>
 
-      <section className="card section">
+      <section
+        id="ongoing-patterns"
+        className="card section"
+        style={{ scrollMarginTop: 18 }}
+      >
         <h2>联合规律 Pattern</h2>
 
         <div className="note">
@@ -1149,11 +1386,29 @@ function signalClass(type) {
   return "";
 }
 
-function Metric({ n, l }) {
+function Metric({ n, l, onClick, hint }) {
+  const interactive = typeof onClick === "function";
+
   return (
-    <div className="metric">
+    <div
+      className={"metric " + (interactive ? "metricInteractive" : "")}
+      onClick={onClick}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       <div className="n">{n}</div>
       <div className="muted">{l}</div>
+      {hint && <div className="metricHint">{hint}</div>}
     </div>
   );
 }
