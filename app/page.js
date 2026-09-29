@@ -907,276 +907,256 @@ function PotentialCombinations({ data }) {
         </div>
 
         {candidates.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>候选联合 / 设计</th>
-                <th>来源</th>
-                <th>组合策略</th>
-                <th>机会分</th>
-                <th>时间窗口</th>
-                <th>Evidence Level</th>
-                <th>风险</th>
-                <th>药物画像</th>
-                <th>为什么可能成立</th>
-                <th>现有开发核对</th>
-              </tr>
+          <div className="tableScroll">
+            <table className="candidateTable">
+              <thead>
+                <tr>
+                  <th>候选联合 / 设计</th>
+                  <th>策略</th>
+                  <th>机会分</th>
+                  <th>竞争时间窗口</th>
+                  <th>证据 / 风险</th>
+                  <th>为什么可能成立</th>
+                  <th>详情</th>
+                </tr>
 
-              <tr className="columnFilterRow">
-                <th>
-                  <input
-                    className="columnFilterInput"
-                    value={comboFilter}
-                    onChange={(e) => setComboFilter(e.target.value)}
-                    placeholder="分子 / 机制"
-                  />
-                </th>
+                <tr className="columnFilterRow">
+                  <th>
+                    <input
+                      className="columnFilterInput"
+                      value={comboFilter}
+                      onChange={(e) => setComboFilter(e.target.value)}
+                      placeholder="分子 / 机制"
+                    />
+                  </th>
 
-                <th>
-                  <select
-                    className="columnFilterSelect"
-                    value={sourceFilter}
-                    onChange={(e) => setSourceFilter(e.target.value)}
-                  >
-                    <option value="all">全部</option>
-                    <option value="Signal-driven">最新信号</option>
-                    <option value="Pattern transfer">同类迁移</option>
-                    <option value="Molecule design">分子内组合</option>
-                  </select>
-                </th>
+                  <th>
+                    <select
+                      className="columnFilterSelect"
+                      value={strategyFilter}
+                      onChange={(e) => setStrategyFilter(e.target.value)}
+                    >
+                      <option value="all">全部策略</option>
+                      <option value="药物间联合">药物间联合</option>
+                      <option value="靶向联合">靶向联合</option>
+                      <option value="双靶点设计">双靶点</option>
+                      <option value="双Payload设计">双Payload</option>
+                      <option value="Modality升级">Modality升级</option>
+                    </select>
+                  </th>
 
-                <th>
-                  <select
-                    className="columnFilterSelect"
-                    value={strategyFilter}
-                    onChange={(e) => setStrategyFilter(e.target.value)}
-                  >
-                    <option value="all">全部</option>
-                    <option value="药物间联合">药物间联合</option>
-                    <option value="靶向联合">靶向联合</option>
-                    <option value="双靶点设计">双靶点</option>
-                    <option value="双Payload设计">双Payload</option>
-                    <option value="Modality升级">Modality升级</option>
-                  </select>
-                </th>
+                  <th>
+                    <select
+                      className="columnFilterSelect"
+                      value={scoreFilter}
+                      onChange={(e) => setScoreFilter(e.target.value)}
+                    >
+                      <option value="all">不限</option>
+                      <option value="70">≥70</option>
+                      <option value="80">≥80</option>
+                      <option value="90">≥90</option>
+                    </select>
+                  </th>
 
-                <th>
-                  <select
-                    className="columnFilterSelect"
-                    value={scoreFilter}
-                    onChange={(e) => setScoreFilter(e.target.value)}
-                  >
-                    <option value="all">不限</option>
-                    <option value="70">≥70</option>
-                    <option value="80">≥80</option>
-                    <option value="90">≥90</option>
-                  </select>
-                </th>
+                  <th>
+                    <select
+                      className="columnFilterSelect"
+                      value={windowFilter}
+                      onChange={(e) => setWindowFilter(e.target.value)}
+                    >
+                      <option value="all">全部</option>
+                      <option value="good">窗口较好</option>
+                      <option value="open">仍有窗口</option>
+                      <option value="crowded">拥挤 / 偏晚</option>
+                    </select>
+                  </th>
 
-                <th>
-                  <select
-                    className="columnFilterSelect"
-                    value={windowFilter}
-                    onChange={(e) => setWindowFilter(e.target.value)}
-                  >
-                    <option value="all">全部</option>
-                    <option value="good">窗口较好</option>
-                    <option value="open">仍有窗口</option>
-                    <option value="crowded">拥挤 / 偏晚</option>
-                  </select>
-                </th>
+                  <th>
+                    <select
+                      className="columnFilterSelect"
+                      value={evidenceTierFilter}
+                      onChange={(e) => setEvidenceTierFilter(e.target.value)}
+                    >
+                      <option value="all">全部证据</option>
+                      <option value="L1">L1</option>
+                      <option value="L2">L2</option>
+                      <option value="L3">L3</option>
+                      <option value="L4">L4</option>
+                    </select>
+                  </th>
 
-                <th>
-                  <select
-                    className="columnFilterSelect"
-                    value={evidenceTierFilter}
-                    onChange={(e) => setEvidenceTierFilter(e.target.value)}
-                  >
-                    <option value="all">全部</option>
-                    <option value="L1">L1</option>
-                    <option value="L2">L2</option>
-                    <option value="L3">L3</option>
-                    <option value="L4">L4</option>
-                  </select>
-                </th>
+                  <th>
+                    <input
+                      className="columnFilterInput"
+                      value={rationaleFilter}
+                      onChange={(e) => setRationaleFilter(e.target.value)}
+                      placeholder="问题 / 互补"
+                    />
+                  </th>
 
-                <th>
-                  <select
-                    className="columnFilterSelect"
-                    value={riskFilter}
-                    onChange={(e) => setRiskFilter(e.target.value)}
-                  >
-                    <option value="all">全部</option>
-                    <option value="Low">低</option>
-                    <option value="Medium">中</option>
-                    <option value="High">高</option>
-                  </select>
-                </th>
+                  <th>
+                    <select
+                      className="columnFilterSelect"
+                      value={developmentFilter}
+                      onChange={(e) => setDevelopmentFilter(e.target.value)}
+                    >
+                      <option value="all">全部</option>
+                      <option value="verified">已核对</option>
+                      <option value="pending">待确认</option>
+                    </select>
+                  </th>
+                </tr>
+              </thead>
 
-                <th>
-                  <input
-                    className="columnFilterInput"
-                    value={profileFilter}
-                    onChange={(e) => setProfileFilter(e.target.value)}
-                    placeholder="Target / Payload"
-                  />
-                </th>
-
-                <th>
-                  <input
-                    className="columnFilterInput"
-                    value={rationaleFilter}
-                    onChange={(e) => setRationaleFilter(e.target.value)}
-                    placeholder="问题 / 互补"
-                  />
-                </th>
-
-                <th>
-                  <select
-                    className="columnFilterSelect"
-                    value={developmentFilter}
-                    onChange={(e) => setDevelopmentFilter(e.target.value)}
-                  >
-                    <option value="all">全部</option>
-                    <option value="verified">已核对</option>
-                    <option value="pending">待确认</option>
-                  </select>
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {candidates.map((x, i) => (
-                <tr key={x.a + "__" + x.b + "__" + i}>
-                  <td>
-                    <b>{x.displayName || (x.a + " + " + x.b)}</b>
-                    <div className="small">
-                      {x.mechanismA} + {x.mechanismB}
-                    </div>
-                  </td>
-
-                  <td>
-                    {x.source === "Signal-driven"
-                      ? "最新信号推导"
-                      : x.source === "Pattern transfer"
-                      ? "同类联合迁移"
-                      : x.source === "Molecule design"
-                      ? "分子内组合"
-                      : "机制推导"}
-                  </td>
-
-                  <td>
-                    <span className="strategyBadge">
-                      {x.combinationStrategy || "药物间联合"}
-                    </span>
-                  </td>
-
-                  <td>
-                    <div className="scorePill">
-                      {x.opportunityScore || x.score || "-"} / 100
-                    </div>
-
-                    {x.scoreBreakdown && (
-                      <div className="small scoreDetail">
-                        疾病 {x.scoreBreakdown.diseaseFit} ·
-                        机制 {x.scoreBreakdown.mechanismComplementarity} ·
-                        Payload {x.scoreBreakdown.payloadRationale} ·
-                        未满足需求 {x.scoreBreakdown.unmetNeedResolution} ·
-                        竞争窗口 {x.scoreBreakdown.timeWindow} ·
-                        分子成熟度 {x.scoreBreakdown.moleculeMaturity}
+              <tbody>
+                {candidates.map((x, i) => (
+                  <tr key={x.a + "__" + x.b + "__" + i}>
+                    <td className="candidateNameCell">
+                      <b>{x.displayName || (x.a + " + " + x.b)}</b>
+                      <div className="small">
+                        {x.mechanismA} + {x.mechanismB}
                       </div>
-                    )}
-                  </td>
+                      <div className="small candidateSource">
+                        {x.source === "Signal-driven"
+                          ? "最新信号推导"
+                          : x.source === "Pattern transfer"
+                          ? "同类联合迁移"
+                          : x.source === "Molecule design"
+                          ? "分子内组合"
+                          : "机制推导"}
+                      </div>
+                    </td>
 
-                  <td>
-                    <div className="timeWindowBox">
-                      <div className="timeWindowTop">
-                        <b>{x.timeWindowLabel || "待评估"}</b>
-                        <span className="timeWindowScore">
-                          {x.timeWindow ?? "-"} / 15
+                    <td>
+                      <span className="strategyBadge">
+                        {x.combinationStrategy || "药物间联合"}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div className="scorePill">
+                        {x.opportunityScore || x.score || "-"} / 100
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="timeWindowBox compactTimeWindow">
+                        <div className="timeWindowTop">
+                          <b>{x.timeWindowLabel || "待评估"}</b>
+                          <span className="timeWindowScore">
+                            {x.timeWindow ?? "-"} / 15
+                          </span>
+                        </div>
+
+                        {x.competitionWindow && (
+                          <>
+                            <div className="small">
+                              领先：<b>{x.competitionWindow.leadingPhase}</b>
+                            </div>
+                            <div className="small">
+                              活跃 {x.competitionWindow.activeTrials} / 总计 {x.competitionWindow.totalTrials}
+                              {" · "}{x.competitionWindow.competitionDensity}
+                            </div>
+                            <div className="small">
+                              追赶：<b>{x.competitionWindow.estimatedCatchUp}</b>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="evidenceRiskStack">
+                        <span className="evidenceTierBadge">
+                          {x.evidenceTier?.code || "-"}
+                        </span>
+                        <span className={"riskBadge " + riskClass(x.risk)}>
+                          {x.risk === "High" ? "高风险" : x.risk === "Medium" ? "中风险" : x.risk === "Low" ? "低风险" : "待评估"}
                         </span>
                       </div>
-
-                      {x.competitionWindow ? (
-                        <>
-                          <div className="small">
-                            领先阶段：<b>{x.competitionWindow.leadingPhase}</b>
-                          </div>
-                          <div className="small">
-                            同类竞争：活跃 {x.competitionWindow.activeTrials} / 总计 {x.competitionWindow.totalTrials}
-                            {" · "}密度 {x.competitionWindow.competitionDensity}
-                          </div>
-                          <div className="small">
-                            追赶压力：<b>{x.competitionWindow.estimatedCatchUp}</b>
-                          </div>
-                          <div className="small timeWindowReason">
-                            {x.competitionWindow.differentiationNeed}
-                          </div>
-                        </>
-                      ) : (
-                        x.marketWindow && (
-                          <div className="small">{x.marketWindow}</div>
-                        )
-                      )}
-                    </div>
-                  </td>
-
-                  <td>
-                    <span className="evidenceTierBadge">
-                      {x.evidenceTier?.code || "-"}
-                    </span>
-                    <div className="small">
-                      {x.evidenceTier?.label || x.evidenceLevel || "待评估"}
-                    </div>
-                    <div className="small" style={{ marginTop: 4 }}>
-                      {x.precedentLevel || "待核对"}
-                    </div>
-                  </td>
-
-                  <td>
-                    <span className={"riskBadge " + riskClass(x.risk)}>
-                      {x.risk === "High" ? "高风险" : x.risk === "Medium" ? "中风险" : x.risk === "Low" ? "低风险" : "待评估"}
-                    </span>
-                    <div className="small">{x.riskRationale || "-"}</div>
-                  </td>
-
-                  <td>
-                    <DrugProfile profile={x.profileA} />
-                    <div className="small" style={{ margin: "5px 0" }}>+</div>
-                    <DrugProfile profile={x.profileB} />
-                  </td>
-
-                  <td>
-                    <div><b>问题：</b>{x.problem || "-"}</div>
-                    <div><b>互补：</b>{x.compensation || "-"}</div>
-                    {(x.predictionBasis || []).length > 0 && (
-                      <div className="predictionBasisBox">
-                        <b>预测依据：</b>
-                        <ul className="compactList">
-                          {(x.predictionBasis || []).map((item, idx) => (
-                            <li key={idx}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {x.designNextStep && (
                       <div className="small">
-                        <b>下一步：</b>{x.designNextStep}
+                        {x.precedentLevel || "待核对"}
                       </div>
-                    )}
-                    <div className="small">{x.rationale || "-"}</div>
-                  </td>
+                    </td>
 
-                  <td>
-                    {x.developmentStatus || "待核对"}
-                    {x.verification && (
-                      <div className="small">{x.verification}</div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <td>
+                      <div className="compactReason">
+                        <div><b>问题：</b>{x.problem || "-"}</div>
+                        <div><b>互补：</b>{x.compensation || "-"}</div>
+                      </div>
+                    </td>
+
+                    <td>
+                      <details className="candidateDetails">
+                        <summary>展开详情</summary>
+
+                        <div className="candidateDetailGrid">
+                          <div>
+                            <b>药物 / 分子画像</b>
+                            <DrugProfile profile={x.profileA} />
+                            <div className="small" style={{ margin: "5px 0" }}>+</div>
+                            <DrugProfile profile={x.profileB} />
+                          </div>
+
+                          <div>
+                            <b>评分与预测依据</b>
+                            {x.scoreBreakdown && (
+                              <div className="small scoreDetail">
+                                疾病 {x.scoreBreakdown.diseaseFit} ·
+                                机制 {x.scoreBreakdown.mechanismComplementarity} ·
+                                Payload {x.scoreBreakdown.payloadRationale} ·
+                                未满足需求 {x.scoreBreakdown.unmetNeedResolution} ·
+                                竞争窗口 {x.scoreBreakdown.timeWindow} ·
+                                分子成熟度 {x.scoreBreakdown.moleculeMaturity}
+                              </div>
+                            )}
+
+                            {(x.predictionBasis || []).length > 0 && (
+                              <div className="predictionBasisBox">
+                                <b>预测依据：</b>
+                                <ul className="compactList">
+                                  {(x.predictionBasis || []).map((item, idx) => (
+                                    <li key={idx}>{item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            <div className="small">
+                              {x.evidenceTier?.label || x.evidenceLevel || "待评估"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <b>核对与边界</b>
+                            <div className="small">
+                              {x.riskRationale || "-"}
+                            </div>
+                            {x.competitionWindow?.differentiationNeed && (
+                              <div className="small" style={{ marginTop: 6 }}>
+                                {x.competitionWindow.differentiationNeed}
+                              </div>
+                            )}
+                            {x.designNextStep && (
+                              <div className="small" style={{ marginTop: 6 }}>
+                                <b>下一步：</b>{x.designNextStep}
+                              </div>
+                            )}
+                            <div className="small" style={{ marginTop: 6 }}>
+                              {x.developmentStatus || "待核对"}
+                            </div>
+                            {x.verification && (
+                              <div className="small">{x.verification}</div>
+                            )}
+                          </div>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="muted">
             当前筛选条件下没有候选。可以放宽机会分、时间窗口或前车之鉴条件。
