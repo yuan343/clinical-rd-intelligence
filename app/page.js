@@ -116,7 +116,12 @@ export default function Home() {
             {tab === "signals" && (
               <RealtimeSignals
                 data={data}
-                onOpenPotential={() => setTab("potential")}
+                onOpenPotential={() => {
+                  setTab("potential");
+                  setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }, 0);
+                }}
                 onOpenOngoing={() => {
                   setTab("ongoing");
                   setTimeout(() => {
