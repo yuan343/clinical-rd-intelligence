@@ -370,3 +370,17 @@ a:hover {
   background: #fbfcff;
   line-height: 1.5;
 }
+
+
+.inlineButton {
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.inlineButton:hover {
+  text-decoration: underline;
+}
