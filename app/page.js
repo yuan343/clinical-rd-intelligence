@@ -113,7 +113,12 @@ export default function Home() {
           <div className="card">数据读取失败，请稍后重试。</div>
         ) : (
           <>
-            {tab === "signals" && <RealtimeSignals data={data} />}
+            {tab === "signals" && (
+              <RealtimeSignals
+                data={data}
+                onOpenPotential={() => setTab("potential")}
+              />
+            )}
 
             {tab === "potential" && <PotentialCombinations data={data} />}
 
@@ -152,7 +157,7 @@ function pageTitle(tab) {
    实时机会
    ========================================================= */
 
-function RealtimeSignals({ data }) {
+function RealtimeSignals({ data, onOpenPotential }) {
   const signalHypotheses = data.signalHypotheses || [];
 
   return (
@@ -193,12 +198,12 @@ function RealtimeSignals({ data }) {
 
         <Metric
           n={signalHypotheses.length}
-          l="潜在联合假设"
+          l="最新信号推导候选"
         />
 
         <Metric
           n={data.combinationPatterns?.length || 0}
-          l="可参考联合 Pattern"
+          l="可参考同类 Pattern"
         />
       </div>
 
@@ -268,12 +273,85 @@ function RealtimeSignals({ data }) {
       </section>
 
       <section className="card section">
-        <h2>预计可以组合已独立成模块</h2>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            alignItems: "center",
+            marginBottom: 10,
+          }}
+        >
+          <h2 style={{ margin: 0 }}>最新信号推导出的潜在组合</h2>
+
+          <button
+            type="button"
+            className="inlineButton"
+            onClick={onOpenPotential}
+          >
+            查看全部预计组合 →
+          </button>
+        </div>
 
         <div className="note">
-          “实时机会”只负责发现最新 Signal 和研发问题；
-          具体候选 A+B、机会评分、风险标签和证据等级统一进入左侧“预计可以组合”。
+          上方“最新信号推导候选”的数量就是这里实际展示的候选数。
+          完整候选池还会叠加机制推导和同类 Pattern 迁移，因此“预计可以组合”页的总数可能更多。
         </div>
+
+        {signalHypotheses.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>具体候选</th>
+                <th>机会分</th>
+                <th>时间窗口</th>
+                <th>前车之鉴</th>
+                <th>触发原因</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {signalHypotheses.slice(0, 5).map((x, i) => (
+                <tr key={x.a + "__" + x.b + "__home__" + i}>
+                  <td>
+                    <b>{x.a} + {x.b}</b>
+                    <div className="small">
+                      {x.mechanismA} + {x.mechanismB}
+                    </div>
+                  </td>
+
+                  <td>
+                    <span className="scorePill">
+                      {x.opportunityScore || x.score || "-"} / 100
+                    </span>
+                  </td>
+
+                  <td>
+                    <b>{x.timeWindowLabel || "待评估"}</b>
+                    <div className="small">
+                      {x.timeWindow ?? "-"} / 15
+                    </div>
+                  </td>
+
+                  <td>
+                    {x.precedentLevel || "待核对"}
+                    <div className="small">
+                      {x.evidenceLevel || "-"}
+                    </div>
+                  </td>
+
+                  <td>
+                    {x.triggerSignal || x.problem || "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="muted">
+            当前检索没有生成最新信号驱动的潜在组合。
+          </div>
+        )}
       </section>
 
       <section className="card section">
