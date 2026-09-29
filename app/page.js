@@ -49,6 +49,7 @@ export default function Home() {
 
         {[
           ["signals", "实时机会"],
+          ["potential", "预计可以组合"],
           ["ongoing", "On Going｜在研联合"],
           ["failures", "终止 / 暂停项目"],
           ["trials", "临床项目"],
@@ -114,6 +115,8 @@ export default function Home() {
           <>
             {tab === "signals" && <RealtimeSignals data={data} />}
 
+            {tab === "potential" && <PotentialCombinations data={data} />}
+
             {tab === "ongoing" && <OnGoing data={data} />}
 
             {tab === "failures" && <Failures data={data} />}
@@ -135,6 +138,7 @@ export default function Home() {
 }
 
 function pageTitle(tab) {
+  if (tab === "potential") return "预计可以组合｜Combination Hypothesis";
   if (tab === "ongoing") return "On Going｜在研联合";
   if (tab === "failures") return "终止 / 暂停项目";
   if (tab === "trials") return "临床项目";
@@ -264,66 +268,12 @@ function RealtimeSignals({ data }) {
       </section>
 
       <section className="card section">
-        <h2>潜在联合假设</h2>
+        <h2>预计可以组合已独立成模块</h2>
 
         <div className="note">
-          这里仅展示由最新研发 Signal 触发形成的新联合方向。
-          已有联合 Pattern 的迁移机会统一放在 On Going 模块中，
-          不再混入这里。
+          “实时机会”只负责发现最新 Signal 和研发问题；
+          具体候选 A+B、机会评分、风险标签和证据等级统一进入左侧“预计可以组合”。
         </div>
-
-        {signalHypotheses.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>潜在联合方向</th>
-                <th>触发 Signal</th>
-                <th>当前研发问题</th>
-                <th>潜在互补机制</th>
-                <th>推导依据</th>
-                <th>现有开发核对</th>
-                <th>时间窗口</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {signalHypotheses.map((x, i) => (
-                <tr key={i}>
-                  <td>
-                    <b>
-                      {x.a} + {x.b}
-                    </b>
-
-                    <div className="small">
-                      {x.mechanismA} + {x.mechanismB}
-                    </div>
-                  </td>
-
-                  <td>{x.triggerSignal || "-"}</td>
-
-                  <td>{x.problem || "-"}</td>
-
-                  <td>{x.compensation || "-"}</td>
-
-                  <td>{x.rationale || "-"}</td>
-
-                  <td>
-                    {x.developmentStatus || "待核对"}
-                  </td>
-
-                  <td>
-                    {x.marketWindow || "待评估"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="muted">
-            当前尚未生成实时 Signal 驱动的潜在联合假设。
-            下一步将接入 Signal-driven Combination Engine。
-          </div>
-        )}
       </section>
 
       <section className="card section">
@@ -416,6 +366,206 @@ function RealtimeSignals({ data }) {
       </section>
     </>
   );
+}
+
+
+/* =========================================================
+   预计可以组合
+   ========================================================= */
+
+function PotentialCombinations({ data }) {
+  const signalHypotheses = data.signalHypotheses || [];
+  const patternCandidates = data.potentialCombinations || [];
+
+  const candidates = [
+    ...signalHypotheses.map((x) => ({
+      ...x,
+      source: "Signal-driven",
+    })),
+    ...patternCandidates.map((x) => ({
+      ...x,
+      source: "Pattern transfer",
+    })),
+  ]
+    .sort(
+      (a, b) =>
+        (b.opportunityScore || b.score || 0) -
+        (a.opportunityScore || a.score || 0)
+    )
+    .slice(0, 16);
+
+  return (
+    <>
+      <section
+        className="card section"
+        style={{
+          padding: "14px 18px",
+          marginBottom: "14px",
+        }}
+      >
+        <div style={{ fontSize: 15, fontWeight: 700 }}>
+          候选联合 → 100分机会评分 → 独立风险标签 → 证据等级 → 可解释理由
+        </div>
+
+        <div
+          className="muted"
+          style={{
+            marginTop: 5,
+            lineHeight: 1.6,
+          }}
+        >
+          这里不等同于“推荐立项”。评分用于筛选值得进一步验证的组合；
+          Risk 独立展示，高风险不等于没有科学价值。
+        </div>
+      </section>
+
+      <div className="metrics">
+        <Metric n={candidates.length} l="当前候选联合" />
+        <Metric
+          n={candidates.filter((x) => (x.opportunityScore || 0) >= 70).length}
+          l="≥70分候选"
+        />
+        <Metric
+          n={candidates.filter((x) => x.risk === "High").length}
+          l="High Risk"
+        />
+        <Metric
+          n={candidates.filter((x) => x.evidenceLevel?.includes("临床")).length}
+          l="已有临床级证据"
+        />
+      </div>
+
+      <section className="card section">
+        <h2>预计可以组合｜候选池</h2>
+
+        <div className="note">
+          100分构成：靶点/瘤种20 + 机制互补20 + Payload逻辑15 +
+          耐药互补10 + TME/免疫10 + 证据15 + 安全可控10。
+        </div>
+
+        {candidates.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>候选联合</th>
+                <th>来源</th>
+                <th>机会分</th>
+                <th>Risk</th>
+                <th>Evidence</th>
+                <th>药物画像</th>
+                <th>为什么可能成立</th>
+                <th>现有开发核对</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {candidates.map((x, i) => (
+                <tr key={x.a + "__" + x.b + "__" + i}>
+                  <td>
+                    <b>{x.a} + {x.b}</b>
+                    <div className="small">
+                      {x.mechanismA} + {x.mechanismB}
+                    </div>
+                  </td>
+
+                  <td>
+                    {x.source === "Signal-driven"
+                      ? "实时 Signal"
+                      : "On Going Pattern"}
+                  </td>
+
+                  <td>
+                    <div className="scorePill">
+                      {x.opportunityScore || x.score || "-"} / 100
+                    </div>
+
+                    {x.scoreBreakdown && (
+                      <div className="small scoreDetail">
+                        瘤种 {x.scoreBreakdown.diseaseFit} ·
+                        机制 {x.scoreBreakdown.mechanismComplementarity} ·
+                        Payload {x.scoreBreakdown.payloadRationale} ·
+                        耐药 {x.scoreBreakdown.resistanceComplementarity} ·
+                        TME {x.scoreBreakdown.tmeImmune} ·
+                        证据 {x.scoreBreakdown.evidence} ·
+                        安全 {x.scoreBreakdown.safetyControllability}
+                      </div>
+                    )}
+                  </td>
+
+                  <td>
+                    <span className={"riskBadge " + riskClass(x.risk)}>
+                      {x.risk || "待评估"}
+                    </span>
+                    <div className="small">{x.riskRationale || "-"}</div>
+                  </td>
+
+                  <td>{x.evidenceLevel || x.evidenceStrength || "待评估"}</td>
+
+                  <td>
+                    <DrugProfile profile={x.profileA} />
+                    <div className="small" style={{ margin: "5px 0" }}>+</div>
+                    <DrugProfile profile={x.profileB} />
+                  </td>
+
+                  <td>
+                    <div><b>问题：</b>{x.problem || "-"}</div>
+                    <div><b>互补：</b>{x.compensation || "-"}</div>
+                    <div className="small">{x.rationale || "-"}</div>
+                  </td>
+
+                  <td>
+                    {x.developmentStatus || "待核对"}
+                    {x.verification && (
+                      <div className="small">{x.verification}</div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="muted">
+            当前检索尚未形成可解释的潜在联合候选。
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function DrugProfile({ profile }) {
+  if (!profile) {
+    return <div className="small">药物画像待核对</div>;
+  }
+
+  return (
+    <div className="profileBox">
+      <b>{profile.modality || "Unknown"}</b>
+      <div className="small">Target：{profile.target || "-"}</div>
+      {profile.payload && (
+        <div className="small">Payload：{profile.payload}</div>
+      )}
+      {profile.linker && (
+        <div className="small">Linker：{profile.linker}</div>
+      )}
+      {profile.dar && (
+        <div className="small">DAR：{profile.dar}</div>
+      )}
+      {profile.radionuclide && (
+        <div className="small">核素：{profile.radionuclide}</div>
+      )}
+      {profile.radiationType && (
+        <div className="small">辐射：{profile.radiationType}</div>
+      )}
+    </div>
+  );
+}
+
+function riskClass(risk) {
+  if (risk === "High") return "high";
+  if (risk === "Medium") return "medium";
+  if (risk === "Low") return "low";
+  return "";
 }
 
 /* =========================================================
@@ -578,63 +728,12 @@ function OnGoing({ data }) {
       </section>
 
       <section className="card section">
-        <h2>基于 On Going Pattern 的迁移机会</h2>
+        <h2>Pattern 迁移已移入“预计可以组合”</h2>
 
         <div className="note">
-          这里来自已有临床联合规律的迁移。
-          科学依据通常更成熟，但需要特别关注竞争进度和市场时间窗口。
+          On Going 仅保留真实在研联合与已验证 Pattern。
+          尚未明确进入临床的迁移候选统一放到“预计可以组合”，避免和真实项目混淆。
         </div>
-
-        {potential.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>候选联合</th>
-                <th>参考 Pattern</th>
-                <th>推导依据</th>
-                <th>可能成立的条件</th>
-                <th>主要限制因素</th>
-                <th>现有开发核对</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {potential.map((x, i) => (
-                <tr key={i}>
-                  <td>
-                    <b>
-                      {x.a} + {x.b}
-                    </b>
-
-                    <div className="small">
-                      {x.mechanismA} + {x.mechanismB}
-                    </div>
-                  </td>
-
-                  <td>{x.referencePattern}</td>
-
-                  <td>{x.rationale}</td>
-
-                  <td>{x.successCondition}</td>
-
-                  <td>{x.failureBoundary}</td>
-
-                  <td>
-                    {x.developmentStatus}
-
-                    <div className="small">
-                      {x.verification}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="muted">
-            当前检索暂未生成满足条件的 Pattern 迁移机会。
-          </div>
-        )}
       </section>
     </>
   );
